@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { TraceStore } from "../src/core/store";
 import { summarizeRun } from "../src/core/insights";
 import { handleCursorHook, hookResponse, mapCursorHook, runIdFor } from "../src/hook/cursor";
+import { detectHookSource, normalizeHookInput } from "../src/hook/normalize";
 
 const homes: string[] = [];
 
@@ -173,5 +174,145 @@ describe("handleCursorHook", () => {
     await handleCursorHook({ ...base, hook_event_name: "sessionEnd", reason: "completed" }, store);
     const [run] = await store.listRuns();
     expect(run?.status).toBe("ended");
+  });
+});
+
+describe("Grok Build hooks", () => {
+  it("normalizes Grok stdin into Cursor-shaped fields", () => {
+    const input = normalizeHookInput({
+      hookEventName: "post_tool_use",
+      hook_event_name: "PostToolUse",
+      sessionId: "sess-9",
+      workspaceRoot: "D:/work/app",
+      toolName: "run_terminal_command",
+      toolInput: { command: "npm test", filePath: "D:/work/app/a.ts" },
+      toolResult: "ok",
+      durationMs: 42,
+    });
+    expect(input.hook_event_name).toBe("postToolUse");
+    expect(input.conversation_id).toBe("sess-9");
+    expect(input.workspace_roots).toEqual(["D:/work/app"]);
+    expect(input.tool_name).toBe("Shell");
+    expect(input.tool_input).toMatchObject({ command: "npm test", path: "D:/work/app/a.ts" });
+    expect(input.tool_output).toBe("ok");
+    expect(input.duration).toBe(42);
+  });
+
+  it("maps UserPromptSubmit and Stop with the final reply", () => {
+    const [prompt] = mapCursorHook(
+      normalizeHookInput({
+        hook_event_name: "UserPromptSubmit",
+        sessionId: "g1",
+        workspaceRoot: "D:/proj",
+        prompt: "ship it",
+      }) as Parameters<typeof mapCursorHook>[0],
+      "grok",
+    );
+    expect(prompt?.type).toBe("model.request");
+    expect(prompt?.source).toBe("grok");
+
+    const events = mapCursorHook(
+      normalizeHookInput({
+        hook_event_name: "Stop",
+        sessionId: "g1",
+        lastAssistantMessage: "done",
+        status: "completed",
+      }) as Parameters<typeof mapCursorHook>[0],
+      "grok",
+    );
+    expect(events.map((e) => e.type)).toEqual(["model.response", "turn.ended"]);
+    expect(events[0]?.data?.text).toBe("done");
+  });
+
+  it("detects Grok from env or argv", () => {
+    expect(detectHookSource(["node", "hook.js"], {})).toBe("cursor");
+    expect(detectHookSource(["node", "hook.js", "--source=grok"], {})).toBe("grok");
+    expect(detectHookSource(["node", "hook.js"], { GROK_SESSION_ID: "abc" })).toBe("grok");
+  });
+
+  it("stores Grok chats under grok_ run ids", async () => {
+    const store = await tempStore();
+    const payload = normalizeHookInput({
+      hook_event_name: "UserPromptSubmit",
+      sessionId: "grok-conv",
+      workspaceRoot: "D:/proj",
+      prompt: "trace me",
+    });
+    await handleCursorHook(payload, store, "grok");
+    const runId = runIdFor(payload, "grok");
+    expect(runId).toBe("grok_grok-conv");
+    const [run] = await store.listRuns();
+    expect(run?.id).toBe(runId);
+    expect(run?.source).toBe("grok");
+    expect(run?.title).toBe("trace me");
+  });
+});
+
+describe("Claude Code hooks", () => {
+  it("normalizes Claude stdin into Cursor-shaped fields", () => {
+    const input = normalizeHookInput({
+      hook_event_name: "PostToolUse",
+      session_id: "claude-sess",
+      cwd: "D:/work/app",
+      tool_name: "Bash",
+      tool_input: { command: "npm test", file_path: "D:/work/app/a.ts" },
+      tool_response: { stdout: "ok", stderr: "", interrupted: false },
+      duration_ms: 88,
+    });
+    expect(input.hook_event_name).toBe("postToolUse");
+    expect(input.conversation_id).toBe("claude-sess");
+    expect(input.workspace_roots).toEqual(["D:/work/app"]);
+    expect(input.tool_name).toBe("Shell");
+    expect(input.tool_output).toEqual({ stdout: "ok", stderr: "", interrupted: false });
+    expect(input.duration).toBe(88);
+  });
+
+  it("maps failures and Stop with last_assistant_message", () => {
+    const [failure] = mapCursorHook(
+      normalizeHookInput({
+        hook_event_name: "PostToolUseFailure",
+        session_id: "c1",
+        cwd: "D:/proj",
+        tool_name: "Bash",
+        tool_input: { command: "exit 1" },
+        error: "Exit code 1\nboom",
+      }) as Parameters<typeof mapCursorHook>[0],
+      "claude",
+    );
+    expect(failure?.error?.message).toContain("Exit code 1");
+    expect(failure?.source).toBe("claude");
+
+    const events = mapCursorHook(
+      normalizeHookInput({
+        hook_event_name: "Stop",
+        session_id: "c1",
+        last_assistant_message: "all set",
+      }) as Parameters<typeof mapCursorHook>[0],
+      "claude",
+    );
+    expect(events.map((e) => e.type)).toEqual(["model.response", "turn.ended"]);
+    expect(events[0]?.data?.text).toBe("all set");
+  });
+
+  it("detects Claude from env or argv", () => {
+    expect(detectHookSource(["node", "hook.js", "--source=claude"], {})).toBe("claude");
+    expect(detectHookSource(["node", "hook.js"], { CLAUDE_PROJECT_DIR: "D:/proj" })).toBe("claude");
+  });
+
+  it("stores Claude chats under claude_ run ids", async () => {
+    const store = await tempStore();
+    const payload = normalizeHookInput({
+      hook_event_name: "UserPromptSubmit",
+      session_id: "claude-conv",
+      cwd: "D:/proj",
+      prompt: "fix the flaky test",
+    });
+    await handleCursorHook(payload, store, "claude");
+    const runId = runIdFor(payload, "claude");
+    expect(runId).toBe("claude_claude-conv");
+    const [run] = await store.listRuns();
+    expect(run?.id).toBe(runId);
+    expect(run?.source).toBe("claude");
+    expect(run?.title).toBe("fix the flaky test");
   });
 });

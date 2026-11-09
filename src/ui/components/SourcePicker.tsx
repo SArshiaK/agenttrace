@@ -1,5 +1,5 @@
 import type { CSSProperties } from "react";
-import { Activity, ArrowRight, Code2, Sparkles } from "lucide-react";
+import { Activity, ArrowRight, Code2, Sparkles, Terminal } from "lucide-react";
 import { SOURCES, SOURCE_META, type SourceId } from "../lib/source";
 
 type Props = {
@@ -10,6 +10,7 @@ type Props = {
 const ICONS: Record<SourceId, typeof Code2> = {
   cursor: Code2,
   grok: Sparkles,
+  claude: Terminal,
 };
 
 export function SourcePicker({ counts, onPick }: Props) {

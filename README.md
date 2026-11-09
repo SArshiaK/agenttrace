@@ -28,7 +28,7 @@ Everything stays on your machine as plain JSONL files.
 
 ## Quick start
 
-You need [Node.js](https://nodejs.org) 18 or newer and [Cursor](https://cursor.com).
+You need [Node.js](https://nodejs.org) 18 or newer, plus at least one of [Cursor](https://cursor.com), [Grok Build](https://docs.x.ai/build), or [Claude Code](https://code.claude.com).
 
 **1. Get it**
 
@@ -38,13 +38,15 @@ cd agenttrace
 npm install
 ```
 
-**2. Connect it to Cursor** (once)
+**2. Connect a harness** (once)
 
 ```bash
-npm run at -- setup-cursor --global
+npm run at -- setup-cursor --global   # Cursor → ~/.cursor/hooks.json
+npm run at -- setup-grok --global     # Grok Build → ~/.grok/hooks/agenttrace.json
+npm run at -- setup-claude --global   # Claude Code → ~/.claude/settings.json
 ```
 
-This builds agenttrace and adds hooks to `~/.cursor/hooks.json`, so **every chat in every project** is traced. The first run takes a few seconds to build.
+Each command builds agenttrace and installs hooks so **every chat** in that harness is traced. The first run takes a few seconds to build. You can install any combination.
 
 **3. Open the timeline**
 
@@ -52,12 +54,12 @@ This builds agenttrace and adds hooks to `~/.cursor/hooks.json`, so **every chat
 npm start
 ```
 
-Your browser opens [http://127.0.0.1:7379](http://127.0.0.1:7379). Now send a message in Cursor and watch it appear.
+Your browser opens [http://127.0.0.1:7379](http://127.0.0.1:7379). Pick a harness, send a message, and watch it appear.
 
 That's it. Keep `npm start` running while you want to watch. Recording happens even when it's closed, so you can open the UI later and everything is there.
 
 > [!IMPORTANT]
-> The hooks point to this folder (`agenttrace/dist/hook/index.js`). If you move or delete the folder, run `setup-cursor` again from the new location.
+> The hooks point to this folder (`agenttrace/dist/hook/index.js`). If you move or delete the folder, rerun the setup command from the new location.
 
 <details>
 <summary>Trace only one project instead of all of them</summary>
@@ -66,9 +68,11 @@ Run this from inside agenttrace, pointing at your project:
 
 ```bash
 npm run at -- setup-cursor --dir /path/to/your/project
+npm run at -- setup-grok --dir /path/to/your/project
+npm run at -- setup-claude --dir /path/to/your/project
 ```
 
-This writes `<project>/.cursor/hooks.json` instead. Pick either global or per-project; installing both records every event twice.
+This writes project-local hook config instead of the global one. Grok project hooks need trust once (`/hooks-trust` or `--trust`). Pick either global or per-project; installing both for the same harness can record every event twice.
 
 </details>
 
@@ -128,6 +132,8 @@ npm run at -- open --port 7400           # the UI on another port
 | Command | What it does |
 |---|---|
 | `setup-cursor [--global \| --dir <path>]` | Install the Cursor hooks |
+| `setup-grok [--global \| --dir <path>]` | Install the Grok Build hooks (`~/.grok/hooks/agenttrace.json`) |
+| `setup-claude [--global \| --dir <path>]` | Install the Claude Code hooks (`~/.claude/settings.json`) |
 | `open [runId] [--port] [--noOpen]` | Start the timeline UI (`npm start` is a shortcut) |
 | `ls` | List runs with their id, status, event count and title |
 | `summary [runId]` | Duration, tools, errors, token breakdown, heaviest steps, findings |
@@ -214,7 +220,8 @@ The agent gets four tools: `start_run`, `log_event`, `end_run` and `get_run_summ
 - [ ] Import exact token usage from Cursor's usage export
 - [ ] Diff view for file edits
 - [ ] Compare two runs side by side
-- [ ] Hooks for Claude Code and Codex
+- [x] Hooks for Claude Code
+- [ ] Hooks for Codex
 
 ## Contributing
 
@@ -226,7 +233,7 @@ npm run build     # CLI, hook, MCP server and UI
 npm run dev:ui    # UI with hot reload
 ```
 
-The code is split into `src/core` (store, schema, insights), `src/hook` (Cursor hook), `src/cli` (commands and UI server), `src/mcp` and `src/ui` (React timeline). Keep it small, local and boring.
+The code is split into `src/core` (store, schema, insights), `src/hook` (Cursor / Grok / Claude hooks), `src/cli` (commands and UI server), `src/mcp` and `src/ui` (React timeline). Keep it small, local and boring.
 
 ## License
 

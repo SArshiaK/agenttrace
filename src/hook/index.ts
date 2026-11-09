@@ -2,7 +2,9 @@ import { appendFile, mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { repairMojibake } from "../core/encoding.js";
 import { getAgenttraceHome } from "../core/paths.js";
+import { TraceStore } from "../core/store.js";
 import { handleCursorHook, hookResponse } from "./cursor.js";
+import { detectHookSource, normalizeHookInput } from "./normalize.js";
 
 function readStdin(timeoutMs: number): Promise<string> {
   return new Promise((resolve) => {
@@ -36,9 +38,15 @@ async function main() {
   let eventName: string | undefined;
   try {
     const raw = repairMojibake((await readStdin(3000)).replace(/^\uFEFF/, ""));
-    const input = raw.trim() ? JSON.parse(raw) : {};
-    eventName = input.hook_event_name;
-    await handleCursorHook(input);
+    const parsed = raw.trim() ? JSON.parse(raw) : {};
+    const input = normalizeHookInput(
+      parsed && typeof parsed === "object" && !Array.isArray(parsed)
+        ? (parsed as Record<string, unknown>)
+        : {},
+    );
+    eventName = typeof input.hook_event_name === "string" ? input.hook_event_name : undefined;
+    const source = detectHookSource();
+    await handleCursorHook(input, new TraceStore(), source);
   } catch (error) {
     await logFailure(error);
   }

@@ -348,6 +348,71 @@ const setupCursorCmd = defineCommand({
   },
 });
 
+const setupGrokCmd = defineCommand({
+  meta: {
+    name: "setup-grok",
+    description: "Install Grok Build hooks so every chat is traced automatically",
+  },
+  args: {
+    global: {
+      type: "boolean",
+      description: "Install for all projects (~/.grok/hooks/agenttrace.json)",
+      default: false,
+    },
+    dir: { type: "string", description: "Project directory (default: current)" },
+  },
+  async run({ args }) {
+    try {
+      const { setupGrokHooks } = await import("./setup-grok.js");
+      const { hookScriptPath } = await import("./setup-cursor.js");
+      const { access } = await import("node:fs/promises");
+      await access(hookScriptPath()).catch(() => {
+        throw new Error("Hook script not built. Run `npm run build` first.");
+      });
+      const { file } = await setupGrokHooks({ global: args.global, projectDir: args.dir });
+      console.log(ok(`Grok Build hooks installed → ${file}`));
+      if (!args.global) {
+        console.log(dim("Project hooks need trust once: /hooks-trust (or launch with --trust)."));
+      }
+      console.log(dim("Send a new message in Grok Build, then run `npm start` to watch it."));
+      console.log(dim("Debug: /hooks in Grok, or ~/.agenttrace/hook-errors.log"));
+    } catch (error) {
+      printError(error);
+    }
+  },
+});
+
+const setupClaudeCmd = defineCommand({
+  meta: {
+    name: "setup-claude",
+    description: "Install Claude Code hooks so every chat is traced automatically",
+  },
+  args: {
+    global: {
+      type: "boolean",
+      description: "Install for all projects (~/.claude/settings.json)",
+      default: false,
+    },
+    dir: { type: "string", description: "Project directory (default: current)" },
+  },
+  async run({ args }) {
+    try {
+      const { setupClaudeHooks } = await import("./setup-claude.js");
+      const { hookScriptPath } = await import("./setup-cursor.js");
+      const { access } = await import("node:fs/promises");
+      await access(hookScriptPath()).catch(() => {
+        throw new Error("Hook script not built. Run `npm run build` first.");
+      });
+      const { file } = await setupClaudeHooks({ global: args.global, projectDir: args.dir });
+      console.log(ok(`Claude Code hooks installed → ${file}`));
+      console.log(dim("Send a new message in Claude Code, then run `npm start` to watch it."));
+      console.log(dim("Debug: /hooks in Claude Code, or ~/.agenttrace/hook-errors.log"));
+    } catch (error) {
+      printError(error);
+    }
+  },
+});
+
 const main = defineCommand({
   meta: {
     name: "agenttrace",
@@ -366,6 +431,8 @@ const main = defineCommand({
     open: openCmd,
     mcp: mcpCmd,
     "setup-cursor": setupCursorCmd,
+    "setup-grok": setupGrokCmd,
+    "setup-claude": setupClaudeCmd,
   },
 });
 

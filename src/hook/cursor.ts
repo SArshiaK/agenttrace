@@ -5,17 +5,27 @@ import { basename, isAbsolute, join, relative } from "node:path";
 import { TraceStore, isHarnessFile } from "../core/store.js";
 import { estimateTokens, measureOutput, redact, truncate } from "../core/redact.js";
 
+export type HookSource = "cursor" | "grok" | "claude";
+
 type HookInput = Record<string, unknown> & {
   hook_event_name?: string;
   conversation_id?: string;
   session_id?: string;
   workspace_roots?: string[];
   model?: string;
+  lastAssistantMessage?: string;
+  last_assistant_message?: string;
 };
 
 type EventInput = Parameters<TraceStore["appendEvent"]>[0];
 
 export const EDIT_TOOLS = new Set(["Write", "StrReplace", "EditNotebook", "Edit", "MultiEdit"]);
+
+const SOURCE_LABEL: Record<HookSource, string> = {
+  cursor: "Cursor chat",
+  grok: "Grok chat",
+  claude: "Claude Code chat",
+};
 
 const TEXT_LIMIT = 4000;
 const OUTPUT_LIMIT = 2000;
@@ -85,18 +95,18 @@ function workspaceOf(input: HookInput): string | undefined {
   return input.workspace_roots?.[0] ?? process.env.CURSOR_PROJECT_DIR;
 }
 
-export function runIdFor(input: HookInput): string | null {
+export function runIdFor(input: HookInput, source: HookSource = "cursor"): string | null {
   const id = input.conversation_id ?? input.session_id;
   if (!id) return null;
-  return `cursor_${String(id).replace(/[^A-Za-z0-9_-]/g, "").slice(0, 64)}`;
+  return `${source}_${String(id).replace(/[^A-Za-z0-9_-]/g, "").slice(0, 64)}`;
 }
 
-/** Maps one Cursor hook payload to zero or more agenttrace events. */
-export function mapCursorHook(input: HookInput): EventInput[] {
+/** Maps one Cursor/Grok hook payload to zero or more agenttrace events. */
+export function mapCursorHook(input: HookInput, source: HookSource = "cursor"): EventInput[] {
   const event = input.hook_event_name;
   const roots = input.workspace_roots;
   const model = str(input.model);
-  const base = { source: "cursor" };
+  const base = { source };
 
   switch (event) {
     case "beforeSubmitPrompt": {
@@ -226,15 +236,32 @@ export function mapCursorHook(input: HookInput): EventInput[] {
         },
       ];
 
-    case "stop":
-      return [
-        {
+    case "stop": {
+      const events: EventInput[] = [];
+      // Grok/Claude put the final reply on Stop as last_assistant_message (no afterAgentResponse).
+      const assistant =
+        str(input.lastAssistantMessage) ?? str(input.last_assistant_message) ?? str(input.text);
+      if (assistant && source !== "cursor") {
+        events.push({
           ...base,
-          type: "turn.ended",
-          title: `Turn ${str(input.status) ?? "ended"}`,
-          data: { status: str(input.status), loopCount: num(input.loop_count) },
-        },
-      ];
+          type: "model.response",
+          title: "Agent",
+          data: {
+            text: clean(assistant, TEXT_LIMIT),
+            chars: assistant.length,
+            estTokens: estimateTokens(assistant),
+            model,
+          },
+        });
+      }
+      events.push({
+        ...base,
+        type: "turn.ended",
+        title: `Turn ${str(input.status) ?? "ended"}`,
+        data: { status: str(input.status), loopCount: num(input.loop_count) ?? num(input.loopCount) },
+      });
+      return events;
+    }
 
     default:
       return [];
@@ -261,13 +288,17 @@ async function claimOnce(runId: string, input: HookInput, home: string): Promise
   }
 }
 
-export async function handleCursorHook(input: HookInput, store = new TraceStore()): Promise<void> {
-  const runId = runIdFor(input);
+export async function handleCursorHook(
+  input: HookInput,
+  store = new TraceStore(),
+  source: HookSource = "cursor",
+): Promise<void> {
+  const runId = runIdFor(input, source);
   if (!runId) return;
   if (!(await claimOnce(runId, input, store.home))) return;
   await store.ensureRun(runId, {
-    title: "Cursor chat",
-    source: "cursor",
+    title: SOURCE_LABEL[source],
+    source,
     data: {
       titleFromPrompt: true,
       conversationId: input.conversation_id ?? input.session_id,
@@ -278,18 +309,19 @@ export async function handleCursorHook(input: HookInput, store = new TraceStore(
   if (input.hook_event_name === "sessionEnd") {
     const reason = str(input.reason);
     await store.endRun(runId, {
-      source: "cursor",
+      source,
       status: reason === "error" ? "error" : "ended",
-      data: { reason, durationMs: num(input.duration_ms) },
+      data: { reason, durationMs: num(input.duration_ms) ?? num(input.durationMs) },
     });
     return;
   }
 
-  for (const event of mapCursorHook(input)) {
+  for (const event of mapCursorHook(input, source)) {
     await store.appendEvent({ ...event, runId });
   }
 }
 
 export function hookResponse(eventName: string | undefined): Record<string, unknown> {
+  // Cursor requires continue:true; Grok UserPromptSubmit ignores allowing stdout.
   return eventName === "beforeSubmitPrompt" ? { continue: true } : {};
 }
