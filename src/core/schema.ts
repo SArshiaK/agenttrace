@@ -49,6 +49,8 @@ export const RunMetaSchema = z.object({
   updatedAt: z.string(),
   endedAt: z.string().optional(),
   source: z.string().optional(),
+  /** Absolute project folder, normalized; undefined for runs without one. */
+  project: z.string().optional(),
   eventCount: z.number().int().nonnegative().default(0),
   status: z.enum(["running", "ended", "error"]).default("running"),
 });

@@ -58,6 +58,7 @@ const startCmd = defineCommand({
       const { run } = await store.startRun({
         title: args.title,
         source: args.source,
+        project: process.cwd(),
       });
       console.log(ok(`Started ${run.id}`));
       console.log(dim(`title: ${run.title}`));

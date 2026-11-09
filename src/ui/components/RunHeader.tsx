@@ -1,8 +1,9 @@
-import { Code, PanelRight, Pause, Play, WandSparkles } from "lucide-react";
+import { Code, Folder, PanelRight, Pause, Play, WandSparkles } from "lucide-react";
+import { groupByProject } from "../lib/projects";
 import type { RunMeta, RunPayload } from "../types";
 import { formatDateTime, formatDuration, formatRelative, formatTokens, percent } from "../lib/format";
 import { str, type Kind } from "../lib/events";
-import { MUGGLE_TOKEN_LABELS, pagesOf, type Mode } from "../lib/humanize";
+import { MUGGLE_TOKEN_LABELS, pagesShort, type Mode } from "../lib/humanize";
 
 type Props = {
   payload: RunPayload;
@@ -91,10 +92,14 @@ export function RunHeader({ payload, runs, onSelectRun, now, live, onToggleLive,
       <label className="run-select-wrap">
         <span className="sr-only">Session</span>
         <select className="run-select" value={run.id} onChange={(e) => onSelectRun(e.target.value)}>
-          {runs.map((r) => (
-            <option key={r.id} value={r.id}>
-              {r.title}
-            </option>
+          {groupByProject(runs).map((g) => (
+            <optgroup key={g.key} label={g.name}>
+              {g.runs.map((r) => (
+                <option key={r.id} value={r.id}>
+                  {r.title}
+                </option>
+              ))}
+            </optgroup>
           ))}
         </select>
       </label>
@@ -105,6 +110,15 @@ export function RunHeader({ payload, runs, onSelectRun, now, live, onToggleLive,
             <span className={`pill ${running ? "pill-live" : `pill-${run.status}`}`}>
               {running ? (muggle ? "Working" : "Live") : run.status === "error" ? "Error" : muggle ? "Done" : "Ended"}
             </span>
+            {run.project && (
+              <>
+                <span className="eyebrow-project" title={run.project}>
+                  <Folder size={12} aria-hidden="true" />
+                  {run.project.split("/").filter(Boolean).pop()}
+                </span>
+                <span aria-hidden="true">·</span>
+              </>
+            )}
             {!muggle && <span>{run.source ?? "manual"}</span>}
             {!muggle && <span aria-hidden="true">·</span>}
             <span title={formatDateTime(run.createdAt)}>started {formatRelative(run.createdAt, now)}</span>
@@ -153,7 +167,7 @@ export function RunHeader({ payload, runs, onSelectRun, now, live, onToggleLive,
           <Kpi label="Problems" value={String(stats.errorCount)} tone={stats.errorCount ? "danger" : undefined} />
           <Kpi
             label="Text processed"
-            value={pagesOf(est.total).replace("about ", "≈ ")}
+            value={pagesShort(est.total)}
             hint={`~${formatTokens(est.total)} tokens`}
           />
         </div>

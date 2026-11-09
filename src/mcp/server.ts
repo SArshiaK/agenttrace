@@ -91,7 +91,7 @@ export async function startMcpServer(home?: string): Promise<void> {
       if (name === "start_run") {
         const title = z.string().optional().parse(args.title);
         const source = z.string().optional().parse(args.source) ?? "mcp";
-        const { run } = await store.startRun({ title, source });
+        const { run } = await store.startRun({ title, source, project: process.cwd() });
         return {
           content: [
             {

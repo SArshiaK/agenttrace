@@ -78,6 +78,10 @@ function toolTitle(name: string, input: Record<string, unknown>, roots?: string[
   return `${name}: ${oneLine.length > 90 ? `${oneLine.slice(0, 90)}…` : oneLine}`;
 }
 
+function workspaceOf(input: HookInput): string | undefined {
+  return input.workspace_roots?.[0] ?? process.env.CURSOR_PROJECT_DIR;
+}
+
 export function runIdFor(input: HookInput): string | null {
   const id = input.conversation_id ?? input.session_id;
   if (!id) return null;
@@ -106,6 +110,7 @@ export function mapCursorHook(input: HookInput): EventInput[] {
             estTokens: estimateTokens(prompt),
             attachments,
             model,
+            workspace: workspaceOf(input),
           },
         },
       ];
@@ -237,7 +242,11 @@ export async function handleCursorHook(input: HookInput, store = new TraceStore(
   await store.ensureRun(runId, {
     title: "Cursor chat",
     source: "cursor",
-    data: { titleFromPrompt: true, conversationId: input.conversation_id ?? input.session_id },
+    data: {
+      titleFromPrompt: true,
+      conversationId: input.conversation_id ?? input.session_id,
+      project: workspaceOf(input),
+    },
   });
 
   if (input.hook_event_name === "sessionEnd") {

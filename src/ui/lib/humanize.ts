@@ -178,6 +178,11 @@ export function pagesOf(tokens: number): string {
   return `about ${Math.round(pages)} pages`;
 }
 
+/** Compact form for cards and chips: "< 1 page", "≈ 2.5 pages". */
+export function pagesShort(tokens: number): string {
+  return tokens < 650 ? "< 1 page" : pagesOf(tokens).replace("about ", "≈ ");
+}
+
 export const MUGGLE_FILTERS: Record<FilterKey, string> = {
   all: "Everything",
   heavy: "Costly",

@@ -15,7 +15,6 @@ import {
   HEAVY_TOKENS,
   SLOW_MS,
   estTokens,
-  groupTurns,
   isRowEvent,
   kindOf,
   loopKeys,
@@ -28,7 +27,7 @@ import {
   type Turn,
 } from "../lib/events";
 import { formatClock, formatDuration, formatTokens } from "../lib/format";
-import { MUGGLE_FILTERS, effortOf, humanRow, pagesOf, type Mode } from "../lib/humanize";
+import { MUGGLE_FILTERS, effortOf, humanRow, pagesOf, pagesShort, type Mode } from "../lib/humanize";
 import { EventIcon } from "./EventIcon";
 
 const FILTERS: Array<{ key: FilterKey; label: string }> = [
@@ -50,6 +49,9 @@ type Props = {
   onSelect: (id: string) => void;
   scrollRoot: HTMLElement | null;
   mode: Mode;
+  turns: Turn[];
+  focusedTurnKey?: string;
+  onFocusTurn: (key: string) => void;
 };
 
 export function Timeline({
@@ -62,10 +64,12 @@ export function Timeline({
   onSelect,
   scrollRoot,
   mode,
+  turns,
+  focusedTurnKey,
+  onFocusTurn,
 }: Props) {
   const { events } = payload;
   const muggle = mode === "muggle";
-  const turns = useMemo(() => groupTurns(events).filter((t) => t.prompt), [events]);
   const loops = useMemo(() => loopKeys(events), [events]);
   const maxTokens = useMemo(() => Math.max(1, ...events.map(estTokens)), [events]);
   const counts = useMemo(() => {
@@ -168,8 +172,12 @@ export function Timeline({
           inProgress={running && turn.key === newestKey && !turn.end}
           muggle={muggle}
           open={isOpen(turn.key)}
-          onToggle={() => toggle(turn.key)}
+          onToggle={() => {
+            toggle(turn.key);
+            onFocusTurn(turn.key);
+          }}
           narrowed={narrowed}
+          focused={turn.key === focusedTurnKey}
         />
       ))}
     </section>
@@ -188,6 +196,7 @@ function TurnGroup({
   open,
   onToggle,
   narrowed,
+  focused,
 }: {
   turn: Turn;
   rows: AgentTraceEvent[];
@@ -200,6 +209,7 @@ function TurnGroup({
   open: boolean;
   onToggle: () => void;
   narrowed: boolean;
+  focused: boolean;
 }) {
   const prompt = turn.prompt!;
   const promptText = str(prompt.data?.text) ?? prompt.title ?? "";
@@ -242,7 +252,7 @@ function TurnGroup({
 
   return (
     <article
-      className={`turn${inProgress ? " is-live" : ""}${open ? "" : " is-collapsed"}`}
+      className={`turn${inProgress ? " is-live" : ""}${open ? "" : " is-collapsed"}${focused ? " is-focused" : ""}`}
       aria-labelledby={headingId}
     >
       <header className="turn-head">
@@ -289,7 +299,7 @@ function TurnGroup({
                 <span className="sr-only">Estimated tokens</span>
               </dt>
             )}
-            <dd className="num">{muggle ? pagesOf(turn.tokens).replace("about ", "≈ ") : `~${formatTokens(turn.tokens)}`}</dd>
+            <dd className="num">{muggle ? pagesShort(turn.tokens) : `~${formatTokens(turn.tokens)}`}</dd>
           </div>
           {turn.errors > 0 && (
             <div className="is-danger" title={muggle ? "Problems" : "Errors"}>

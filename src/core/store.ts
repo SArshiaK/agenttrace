@@ -133,6 +133,10 @@ export function deriveRunMeta(runId: string, events: AgentTraceEvent[]): RunMeta
   }
 
   const endedStatus = ended?.data?.status === "error" ? "error" : "ended";
+  // Chats recorded before projects were tracked pick theirs up from the next prompt.
+  const projectSource =
+    (typeof started?.data?.project === "string" && started.data.project) ||
+    events.find((e) => typeof e.data?.workspace === "string")?.data?.workspace;
   return {
     id: runId,
     title,
@@ -140,9 +144,18 @@ export function deriveRunMeta(runId: string, events: AgentTraceEvent[]): RunMeta
     updatedAt: last?.ts ?? started?.ts ?? new Date(0).toISOString(),
     endedAt: ended?.ts,
     source: started?.source,
+    project: typeof projectSource === "string" ? normalizeProject(projectSource) : undefined,
     eventCount: events.length,
     status: ended ? endedStatus : "running",
   };
+}
+
+/** One key per folder regardless of slash style or drive-letter case. */
+export function normalizeProject(path: string): string {
+  return path
+    .replace(/\\/g, "/")
+    .replace(/\/+$/, "")
+    .replace(/^([A-Za-z]):/, (_, drive: string) => `${drive.toLowerCase()}:`);
 }
 
 export class TraceStore {
@@ -208,6 +221,7 @@ export class TraceStore {
       runId?: string;
       ts?: string;
       makeCurrent?: boolean;
+      project?: string;
     } = {},
   ): Promise<{ run: RunMeta; event: AgentTraceEvent }> {
     await this.init();
@@ -218,7 +232,7 @@ export class TraceStore {
       type: "run.started",
       source: opts.source ?? "cli",
       title,
-      data: { title },
+      data: { title, ...(opts.project ? { project: opts.project } : {}) },
       ts: opts.ts,
     });
     if (opts.makeCurrent !== false) {

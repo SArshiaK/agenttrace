@@ -136,6 +136,8 @@ export type Turn = {
   index: number;
   prompt?: AgentTraceEvent;
   events: AgentTraceEvent[];
+  /** Everything recorded in this turn, unmerged; used to compute per-turn insights. */
+  raw: AgentTraceEvent[];
   end?: AgentTraceEvent;
   startTs: string;
   endTs: string;
@@ -156,6 +158,7 @@ export function groupTurns(events: AgentTraceEvent[]): Turn[] {
       index: prompt ? ++promptCount : 0,
       prompt,
       events: [],
+      raw: prompt ? [prompt] : [],
       startTs: prompt?.ts ?? ts ?? new Date().toISOString(),
       endTs: prompt?.ts ?? ts ?? new Date().toISOString(),
       tokens: prompt ? estTokens(prompt) : 0,
@@ -174,6 +177,7 @@ export function groupTurns(events: AgentTraceEvent[]): Turn[] {
     if (event.type === "run.started" || event.type === "run.ended") continue;
     current ??= open(undefined, event.ts);
     current.endTs = event.ts;
+    current.raw.push(event);
     if (event.type === "turn.ended") {
       current.end = event;
       continue;

@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Check, CircleCheck, Copy, Info, TriangleExclamationPoint, X } from "lucide-react";
-import type { AgentTraceEvent, RunPayload } from "../types";
-import { estTokens, kindOf, rowText, str } from "../lib/events";
+import { summarizeRun } from "../../core/insights";
+import type { AgentTraceEvent, RunPayload, RunSummary } from "../types";
+import { estTokens, kindOf, rowText, str, type Turn } from "../lib/events";
 import { formatClock, formatDateTime, formatDuration, formatTokens } from "../lib/format";
 import {
   effortOf,
@@ -10,6 +11,7 @@ import {
   humanRow,
   humanToolName,
   pagesOf,
+  pagesShort,
   type Mode,
 } from "../lib/humanize";
 import { EventIcon } from "./EventIcon";
@@ -22,9 +24,32 @@ type Props = {
   open: boolean;
   onClose: () => void;
   mode: Mode;
+  turn?: Turn;
+  scope: Scope;
+  onScope: (scope: Scope) => void;
 };
 
-export function SidePanel({ payload, selectedEvent, onSelectEvent, onCloseEvent, open, onClose, mode }: Props) {
+export type Scope = "turn" | "session";
+
+/** Insights for one message: the same heuristics as the session, run on that turn's events. */
+function turnSummary(payload: RunPayload, turn: Turn): RunSummary {
+  const summary = summarizeRun(payload.run, turn.raw);
+  const durationMs = Date.parse(turn.endTs) - Date.parse(turn.startTs);
+  return { ...summary, stats: { ...summary.stats, durationMs } };
+}
+
+export function SidePanel({
+  payload,
+  selectedEvent,
+  onSelectEvent,
+  onCloseEvent,
+  open,
+  onClose,
+  mode,
+  turn,
+  scope,
+  onScope,
+}: Props) {
   const [tab, setTab] = useState<"insights" | "event">("insights");
   const selectedId = selectedEvent?.id;
   useEffect(() => {
@@ -32,6 +57,10 @@ export function SidePanel({ payload, selectedEvent, onSelectEvent, onCloseEvent,
   }, [selectedId]);
   const active = selectedEvent ? tab : "insights";
   const muggle = mode === "muggle";
+  const summary = useMemo(
+    () => (scope === "turn" && turn ? turnSummary(payload, turn) : payload.summary),
+    [scope, turn, payload],
+  );
 
   return (
     <aside className={`panel${open ? " is-open" : ""}`} aria-label="Details">
@@ -72,32 +101,93 @@ export function SidePanel({ payload, selectedEvent, onSelectEvent, onCloseEvent,
             }}
           />
         ) : (
-          <Insights
-            payload={payload}
-            muggle={muggle}
-            onSelectEvent={(id) => {
-              onSelectEvent(id);
-              setTab("event");
-            }}
-          />
+          <>
+            <ScopeBar turn={turn} scope={scope} onScope={onScope} muggle={muggle} />
+            <Insights
+              summary={summary}
+              events={payload.events}
+              muggle={muggle}
+              scoped={scope === "turn" && !!turn}
+              onSelectEvent={(id) => {
+                onSelectEvent(id);
+                setTab("event");
+              }}
+            />
+          </>
         )}
       </div>
     </aside>
   );
 }
 
-function Insights({
-  payload,
+function ScopeBar({
+  turn,
+  scope,
+  onScope,
   muggle,
+}: {
+  turn?: Turn;
+  scope: Scope;
+  onScope: (s: Scope) => void;
+  muggle: boolean;
+}) {
+  const promptText = str(turn?.prompt?.data?.text) ?? turn?.prompt?.title ?? "";
+  return (
+    <div className="scope">
+      <div className="scope-toggle" role="group" aria-label={muggle ? "Show overview for" : "Insights scope"}>
+        <button
+          type="button"
+          className={`scope-btn${scope === "turn" ? " is-on" : ""}`}
+          aria-pressed={scope === "turn"}
+          disabled={!turn}
+          onClick={() => onScope("turn")}
+        >
+          {muggle ? "This message" : "This turn"}
+        </button>
+        <button
+          type="button"
+          className={`scope-btn${scope === "session" ? " is-on" : ""}`}
+          aria-pressed={scope === "session"}
+          onClick={() => onScope("session")}
+        >
+          {muggle ? "Whole chat" : "Whole session"}
+        </button>
+      </div>
+      {scope === "turn" && turn && (
+        <p className="scope-caption">
+          <span className="scope-label">
+            {muggle ? `You asked · ${formatClock(turn.startTs).slice(0, 5)}` : `Turn ${turn.index}`}
+          </span>
+          <span className="scope-text" dir="auto">
+            {promptText}
+          </span>
+        </p>
+      )}
+      {scope === "turn" && turn && (
+        <p className="hint">
+          {muggle ? "Click another message in the timeline to see its overview." : "Click a turn header to scope these insights to it."}
+        </p>
+      )}
+    </div>
+  );
+}
+
+function Insights({
+  summary,
+  events,
+  muggle,
+  scoped,
   onSelectEvent,
 }: {
-  payload: RunPayload;
+  summary: RunSummary;
+  events: AgentTraceEvent[];
   muggle: boolean;
+  scoped: boolean;
   onSelectEvent: (id: string) => void;
 }) {
-  const { stats, findings, health } = payload.summary;
+  const { stats, findings, health } = summary;
   const maxStep = stats.heaviestSteps[0]?.estTokens ?? 1;
-  const byId = new Map(payload.events.map((e) => [e.id, e]));
+  const byId = new Map(events.map((e) => [e.id, e]));
 
   const tools = muggle
     ? [
@@ -119,6 +209,29 @@ function Insights({
 
   return (
     <>
+      {scoped && (
+        <dl className="mini-kpis">
+          <div>
+            <dt>{muggle ? "Took" : "Duration"}</dt>
+            <dd className="num">{formatDuration(stats.durationMs)}</dd>
+          </div>
+          <div>
+            <dt>{muggle ? "Actions" : "Tool calls"}</dt>
+            <dd className="num">{stats.toolCount}</dd>
+          </div>
+          <div>
+            <dt>{muggle ? "Text" : "Tokens"}</dt>
+            <dd className="num">
+              {muggle ? pagesShort(stats.estTokens.total) : `~${formatTokens(stats.estTokens.total)}`}
+            </dd>
+          </div>
+          <div className={stats.errorCount ? "is-danger" : undefined}>
+            <dt>{muggle ? "Problems" : "Errors"}</dt>
+            <dd className="num">{stats.errorCount}</dd>
+          </div>
+        </dl>
+      )}
+
       <section className="card">
         <h2 className="card-title">{muggle ? "What took the most effort" : "Heaviest steps"}</h2>
         {stats.heaviestSteps.length === 0 ? (
@@ -135,7 +248,7 @@ function Insights({
                       {title}
                     </span>
                     <span className="rank-value num">
-                      {muggle ? pagesOf(step.estTokens).replace("about ", "≈ ") : `~${formatTokens(step.estTokens)}`}
+                      {muggle ? pagesShort(step.estTokens) : `~${formatTokens(step.estTokens)}`}
                     </span>
                     <span className="rank-bar" aria-hidden="true">
                       <span style={{ width: `${(step.estTokens / maxStep) * 100}%` }} />

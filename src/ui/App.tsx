@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { TriangleExclamationPoint } from "lucide-react";
 import type { RunMeta, RunPayload } from "./types";
-import type { FilterKey } from "./lib/events";
+import { groupTurns, type FilterKey } from "./lib/events";
+import type { Scope } from "./components/SidePanel";
 import type { Mode } from "./lib/humanize";
 import { Sidebar } from "./components/Sidebar";
 import { RunHeader } from "./components/RunHeader";
@@ -30,6 +31,8 @@ export function App() {
   const [panelOpen, setPanelOpen] = useState(false);
   const [now, setNow] = useState(() => Date.now());
   const [scrollRoot, setScrollRoot] = useState<HTMLElement | null>(null);
+  const [focusedTurnKey, setFocusedTurnKey] = useState<string | null>(null);
+  const [scope, setScope] = useState<Scope>("turn");
   const [mode, setMode] = useState<Mode>(() =>
     localStorage.getItem(MODE_KEY) === "technical" ? "technical" : "muggle",
   );
@@ -92,13 +95,29 @@ export function App() {
     setSelectedEventId(null);
     setFilter("all");
     setQuery("");
+    setFocusedTurnKey(null);
+    setScope("turn");
     window.history.replaceState(null, "", `?run=${encodeURIComponent(id)}`);
   }, []);
 
-  const selectEvent = useCallback((id: string) => {
-    setSelectedEventId(id);
-    setPanelOpen(true);
+  const turns = useMemo(() => (payload ? groupTurns(payload.events).filter((t) => t.prompt) : []), [payload]);
+  // null = follow the newest message.
+  const focusedTurn = turns.find((t) => t.key === focusedTurnKey) ?? turns[turns.length - 1];
+
+  const focusTurn = useCallback((key: string) => {
+    setFocusedTurnKey(key);
+    setScope("turn");
   }, []);
+
+  const selectEvent = useCallback(
+    (id: string) => {
+      setSelectedEventId(id);
+      setPanelOpen(true);
+      const owner = turns.find((t) => t.raw.some((e) => e.id === id));
+      if (owner) setFocusedTurnKey(owner.key);
+    },
+    [turns],
+  );
 
   const selectedEvent = payload?.events.find((e) => e.id === selectedEventId) ?? null;
   const showEmpty = runs !== null && runs.length === 0;
@@ -135,6 +154,9 @@ export function App() {
             <Timeline
               key={payload.run.id}
               payload={payload}
+              turns={turns}
+              focusedTurnKey={scope === "turn" ? focusedTurn?.key : undefined}
+              onFocusTurn={focusTurn}
               filter={filter}
               onFilter={setFilter}
               query={query}
@@ -158,6 +180,9 @@ export function App() {
             open={panelOpen}
             onClose={() => setPanelOpen(false)}
             mode={mode}
+            turn={focusedTurn}
+            scope={focusedTurn ? scope : "session"}
+            onScope={setScope}
           />
           {panelOpen && <div className="scrim" onClick={() => setPanelOpen(false)} aria-hidden="true" />}
         </>

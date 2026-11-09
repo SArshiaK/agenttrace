@@ -125,6 +125,20 @@ describe("handleCursorHook", () => {
     expect(summary.stats.turnCount).toBe(1);
   });
 
+  it("files each chat under its project folder", async () => {
+    const store = await tempStore();
+    await handleCursorHook(
+      { conversation_id: "a", workspace_roots: ["D:\\work\\shop"], hook_event_name: "sessionStart" },
+      store,
+    );
+    await handleCursorHook(
+      { conversation_id: "b", workspace_roots: ["d:/work/blog/"], hook_event_name: "beforeSubmitPrompt", prompt: "hi" },
+      store,
+    );
+    const projects = (await store.listRuns()).map((r) => r.project).sort();
+    expect(projects).toEqual(["d:/work/blog", "d:/work/shop"]);
+  });
+
   it("ends the run on sessionEnd", async () => {
     const store = await tempStore();
     await handleCursorHook({ ...base, hook_event_name: "sessionStart" }, store);
