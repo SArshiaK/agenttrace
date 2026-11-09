@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Activity, ChevronRight, Folder } from "lucide-react";
+import { Activity, ChevronRight, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import type { RunMeta } from "../types";
 import { formatRelative } from "../lib/format";
 import { groupByProject } from "../lib/projects";
@@ -10,88 +10,98 @@ type Props = {
   selectedId: string | null;
   onSelect: (id: string) => void;
   now: number;
+  open: boolean;
+  onToggle: () => void;
 };
 
-export function Sidebar({ runs, loading, selectedId, onSelect, now }: Props) {
+export function Sidebar({ runs, loading, selectedId, onSelect, now, open, onToggle }: Props) {
   const groups = useMemo(() => groupByProject(runs), [runs]);
+  // undefined = follow default (open only the project that holds the selected chat)
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
 
   return (
-    <aside className="sidebar" aria-label="Sessions">
+    <aside
+      id="sessions-nav"
+      className={`sidebar${open ? " is-open" : " is-collapsed"}`}
+      aria-label="Sessions"
+    >
       <div className="brand">
         <span className="brand-mark" aria-hidden="true">
           <Activity size={16} strokeWidth={2.25} />
         </span>
         <span className="brand-name">agenttrace</span>
+        <button
+          type="button"
+          className="icon-btn side-toggle"
+          onClick={onToggle}
+          aria-expanded={open}
+          aria-controls="sessions-nav"
+          aria-label={open ? "Collapse projects sidebar" : "Expand projects sidebar"}
+          title={open ? "Collapse sidebar" : "Expand sidebar"}
+        >
+          {open ? <PanelLeftClose size={16} aria-hidden="true" /> : <PanelLeftOpen size={16} aria-hidden="true" />}
+        </button>
       </div>
 
-      <div className="side-label">
-        <span>Projects</span>
-        <span className="side-count num">{groups.length}</span>
-      </div>
-
-      <nav className="session-nav">
-        {loading && <p className="side-empty">Loading…</p>}
-        {!loading && runs.length === 0 && <p className="side-empty">No sessions recorded yet.</p>}
-        {groups.map((group) => {
-          const hasActive = group.runs.some((r) => r.id === selectedId);
-          const open = !(collapsed[group.key] ?? false);
-          const live = group.runs.some((r) => r.status === "running");
-          const listId = `project-${group.key}`;
-          return (
-            <section key={group.key} className={`project${hasActive ? " has-active" : ""}`}>
-              <button
-                type="button"
-                className="project-head"
-                aria-expanded={open}
-                aria-controls={listId}
-                title={group.path}
-                onClick={() => setCollapsed((c) => ({ ...c, [group.key]: open }))}
-              >
-                <ChevronRight size={14} className="project-chevron" aria-hidden="true" />
-                <Folder size={14} className="project-icon" aria-hidden="true" />
-                <span className="project-name">{group.name}</span>
-                {live && <span className="project-live" aria-label="has a live chat" />}
-                <span className="side-count num">{group.runs.length}</span>
-              </button>
-              {open && (
-                <ul className="session-list" id={listId}>
-                  {group.runs.map((run) => {
-                    const active = run.id === selectedId;
-                    const running = run.status === "running";
-                    return (
-                      <li key={run.id}>
-                        <button
-                          type="button"
-                          className={`session${active ? " is-active" : ""}`}
-                          aria-current={active ? "true" : undefined}
-                          onClick={() => onSelect(run.id)}
-                        >
-                          <span className={`status-dot s-${run.status}`} aria-hidden="true" />
-                          <span className="session-body">
+      <div className="side-content" aria-hidden={!open} inert={!open ? true : undefined}>
+        <nav className="session-nav" aria-label="Projects">
+          {loading && <p className="side-empty">Loading…</p>}
+          {!loading && runs.length === 0 && <p className="side-empty">No sessions yet.</p>}
+          {groups.map((group) => {
+            const hasActive = group.runs.some((r) => r.id === selectedId);
+            const groupOpen = !(collapsed[group.key] ?? !hasActive);
+            const live = group.runs.some((r) => r.status === "running");
+            const listId = `project-${group.key}`;
+            return (
+              <section key={group.key} className={`project${hasActive ? " has-active" : ""}`}>
+                <button
+                  type="button"
+                  className="project-head"
+                  aria-expanded={groupOpen}
+                  aria-controls={listId}
+                  title={group.path}
+                  onClick={() => setCollapsed((c) => ({ ...c, [group.key]: groupOpen }))}
+                >
+                  <ChevronRight size={14} className="project-chevron" aria-hidden="true" />
+                  <span className="project-name">{group.name}</span>
+                  {live && <span className="project-live" aria-label="has a live chat" />}
+                  <span className="project-count num" aria-label={`${group.runs.length} chats`}>
+                    {group.runs.length}
+                  </span>
+                </button>
+                {groupOpen && (
+                  <ul className="session-list" id={listId}>
+                    {group.runs.map((run) => {
+                      const active = run.id === selectedId;
+                      const running = run.status === "running";
+                      const when = formatRelative(run.updatedAt, now);
+                      return (
+                        <li key={run.id}>
+                          <button
+                            type="button"
+                            className={`session${active ? " is-active" : ""}${running ? " is-live" : ""}`}
+                            aria-current={active ? "true" : undefined}
+                            aria-label={`${run.title}, ${running ? "live" : run.status}, ${when}`}
+                            onClick={() => onSelect(run.id)}
+                          >
+                            <span className={`status-dot s-${run.status}`} aria-hidden="true" />
                             <span className="session-title" dir="auto">
                               {run.title}
                             </span>
-                            <span className="session-meta">
-                              {running ? <span className="live-text">Live</span> : <span>{run.status}</span>}
-                              <span aria-hidden="true">·</span>
-                              <span>{formatRelative(run.updatedAt, now)}</span>
-                              <span aria-hidden="true">·</span>
-                              <span className="num">{run.eventCount} events</span>
-                            </span>
-                          </span>
-                        </button>
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
-            </section>
-          );
-        })}
-      </nav>
+                            <span className={`session-when${running ? " is-live" : ""}`}>{running ? "Live" : when}</span>
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </section>
+            );
+          })}
+        </nav>
 
-      <p className="side-foot">Local only · ~/.agenttrace</p>
+        <p className="side-foot">Local only</p>
+      </div>
     </aside>
   );
 }

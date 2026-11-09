@@ -15,7 +15,7 @@ import {
   type Mode,
 } from "../lib/humanize";
 import { EventIcon } from "./EventIcon";
-import { Accuracy, ESTIMATE_NOTE } from "./RunHeader";
+import { Accuracy, EffortBreakdown, ESTIMATE_NOTE } from "./RunHeader";
 
 type Props = {
   payload: RunPayload;
@@ -64,7 +64,13 @@ export function SidePanel({
   );
 
   return (
-    <aside className={`panel${open ? " is-open" : ""}`} aria-label="Details">
+    <aside
+      id="details-panel"
+      className={`panel${open ? " is-open" : " is-collapsed"}`}
+      aria-label="Details"
+      aria-hidden={!open}
+      inert={!open ? true : undefined}
+    >
       <div className="panel-tabs" role="tablist">
         <button
           type="button"
@@ -72,6 +78,7 @@ export function SidePanel({
           aria-selected={active === "insights"}
           className={`tab${active === "insights" ? " is-on" : ""}`}
           onClick={() => setTab("insights")}
+          tabIndex={open ? undefined : -1}
         >
           {muggle ? "Overview" : "Insights"}
         </button>
@@ -82,10 +89,18 @@ export function SidePanel({
           className={`tab${active === "event" ? " is-on" : ""}`}
           disabled={!selectedEvent}
           onClick={() => setTab("event")}
+          tabIndex={open ? undefined : -1}
         >
           {muggle ? "Step" : "Event"}
         </button>
-        <button type="button" className="icon-btn panel-close" onClick={onClose} aria-label="Close panel">
+        <button
+          type="button"
+          className="icon-btn panel-close"
+          onClick={onClose}
+          aria-label="Collapse details panel"
+          title="Collapse panel"
+          tabIndex={open ? undefined : -1}
+        >
           <X size={16} aria-hidden="true" />
         </button>
       </div>
@@ -108,7 +123,6 @@ export function SidePanel({
               summary={summary}
               events={payload.events}
               muggle={muggle}
-              scoped={scope === "turn" && !!turn}
               onSelectEvent={(id) => {
                 onSelectEvent(id);
                 setTab("event");
@@ -164,11 +178,6 @@ function ScopeBar({
           </span>
         </p>
       )}
-      {scope === "turn" && turn && (
-        <p className="hint">
-          {muggle ? "Click another message in the timeline to see its overview." : "Click a turn header to scope these insights to it."}
-        </p>
-      )}
     </div>
   );
 }
@@ -177,13 +186,11 @@ function Insights({
   summary,
   events,
   muggle,
-  scoped,
   onSelectEvent,
 }: {
   summary: RunSummary;
   events: AgentTraceEvent[];
   muggle: boolean;
-  scoped: boolean;
   onSelectEvent: (id: string) => void;
 }) {
   const { stats, findings, health } = summary;
@@ -208,42 +215,51 @@ function Insights({
       ].sort((a, b) => b.estTokens - a.estTokens)
     : stats.heaviestTools;
 
+  const issues = health.filter((item) => !item.ok);
+  const topSteps = stats.heaviestSteps.slice(0, 5);
+  const topTools = tools.slice(0, 5);
+
   return (
     <>
-      {scoped && (
-        <dl className="mini-kpis">
-          <div>
-            <dt>{muggle ? "Took" : "Duration"}</dt>
-            <dd className="num">{formatDuration(stats.durationMs)}</dd>
-          </div>
-          <div>
-            <dt>{muggle ? "Actions" : "Tool calls"}</dt>
-            <dd className="num">{stats.toolCount}</dd>
-          </div>
-          <div>
-            <dt>
-              {muggle ? "Text" : "Tokens"} <Accuracy kind="est" />
-            </dt>
-            <dd className="num">
-              {muggle ? pagesShort(stats.estTokens.total) : `~${formatTokens(stats.estTokens.total)}`}
-            </dd>
-          </div>
-          <div className={stats.errorCount ? "is-danger" : undefined}>
-            <dt>{muggle ? "Problems" : "Errors"}</dt>
-            <dd className="num">{stats.errorCount}</dd>
-          </div>
-        </dl>
-      )}
+      <dl className="mini-kpis">
+        <div>
+          <dt>{muggle ? "Took" : "Duration"}</dt>
+          <dd className="num">{formatDuration(stats.durationMs)}</dd>
+        </div>
+        <div>
+          <dt>{muggle ? "Actions" : "Tools"}</dt>
+          <dd className="num">{stats.toolCount}</dd>
+        </div>
+        <div>
+          <dt>
+            {muggle ? "Text" : "Tokens"} <Accuracy kind="est" />
+          </dt>
+          <dd className="num">
+            {muggle ? pagesShort(stats.estTokens.total) : `~${formatTokens(stats.estTokens.total)}`}
+          </dd>
+        </div>
+        <div className={stats.errorCount ? "is-danger" : undefined}>
+          <dt>{muggle ? "Problems" : "Errors"}</dt>
+          <dd className="num">{stats.errorCount}</dd>
+        </div>
+      </dl>
 
       <section className="card">
         <h2 className="card-title">
-          {muggle ? "What took the most effort" : "Heaviest steps"} <Accuracy kind="est" />
+          {muggle ? "Where the effort went" : "Context text"} <Accuracy kind="est" />
         </h2>
-        {stats.heaviestSteps.length === 0 ? (
+        <EffortBreakdown est={stats.estTokens} muggle={muggle} />
+      </section>
+
+      <section className="card">
+        <h2 className="card-title">
+          {muggle ? "Heaviest steps" : "Heaviest steps"} <Accuracy kind="est" />
+        </h2>
+        {topSteps.length === 0 ? (
           <p className="hint">{muggle ? "Nothing yet." : "No token-bearing steps yet."}</p>
         ) : (
           <ol className="rank">
-            {stats.heaviestSteps.map((step) => {
+            {topSteps.map((step) => {
               const event = byId.get(step.eventId);
               const title = muggle && event ? humanRow(event).text : step.title;
               return (
@@ -266,90 +282,91 @@ function Insights({
         )}
       </section>
 
-      {tools.length > 0 && (
+      {issues.length > 0 || findings.length > 0 ? (
         <section className="card">
-          <h2 className="card-title">{muggle ? "What it used most" : "By tool"}</h2>
-          <table className="tool-table">
-            <thead>
-              <tr>
-                <th scope="col">{muggle ? "Used" : "Tool"}</th>
-                <th scope="col">{muggle ? "Times" : "Calls"}</th>
-                <th scope="col" title={ESTIMATE_NOTE}>
-                  {muggle ? "Effort" : "Est. tokens"}
-                </th>
-                <th scope="col">Time</th>
-              </tr>
-            </thead>
-            <tbody>
-              {tools.map((t) => (
-                <tr key={t.name}>
-                  <td>{t.name}</td>
-                  <td className="num">{t.calls}</td>
-                  <td className="num">{muggle ? effortOf(t.estTokens) : `~${formatTokens(t.estTokens)}`}</td>
-                  <td className="num">{formatDuration(t.durationMs)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </section>
-      )}
-
-      <section className="card">
-        <h2 className="card-title">{muggle ? "Health check" : "Run health"}</h2>
-        <ul className="health">
-          {health.map((item) => (
-            <li key={item.id} className={item.ok ? "is-ok" : "is-bad"}>
-              {item.ok ? (
-                <CircleCheck size={14} aria-hidden="true" />
-              ) : (
-                <TriangleExclamationPoint size={14} aria-hidden="true" />
-              )}
-              <span>{muggle ? humanHealth(item) : item.label}</span>
-            </li>
-          ))}
-        </ul>
-      </section>
-
-      {findings.length > 0 && (
-        <section className="card">
-          <h2 className="card-title">
-            {muggle ? "Worth knowing" : "Findings"} <span className="count-badge num">{findings.length}</span>
-          </h2>
-          <ul className="findings">
-            {findings.map((f) => {
-              const text = muggle ? humanFinding(f) : { title: f.title, detail: f.detail };
-              return (
-                <li key={f.id} className={`finding sev-${f.severity}`}>
-                  {f.severity === "info" ? (
-                    <Info size={14} aria-hidden="true" />
-                  ) : (
-                    <TriangleExclamationPoint size={14} aria-hidden="true" />
-                  )}
-                  <div>
-                    <strong>{text.title}</strong>
-                    <p>{text.detail}</p>
-                  </div>
+          <h2 className="card-title">{muggle ? "Problems" : "Issues"}</h2>
+          {issues.length > 0 && (
+            <ul className="health">
+              {issues.map((item) => (
+                <li key={item.id} className="is-bad">
+                  <TriangleExclamationPoint size={14} aria-hidden="true" />
+                  <span>{muggle ? humanHealth(item) : item.label}</span>
                 </li>
-              );
-            })}
-          </ul>
+              ))}
+            </ul>
+          )}
+          {findings.length > 0 && (
+            <ul className="findings">
+              {findings.map((f) => {
+                const text = muggle ? humanFinding(f) : { title: f.title, detail: f.detail };
+                return (
+                  <li key={f.id} className={`finding sev-${f.severity}`}>
+                    {f.severity === "info" ? (
+                      <Info size={14} aria-hidden="true" />
+                    ) : (
+                      <TriangleExclamationPoint size={14} aria-hidden="true" />
+                    )}
+                    <div>
+                      <strong>{text.title}</strong>
+                      <p>{text.detail}</p>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
         </section>
+      ) : (
+        <p className="health-ok">
+          <CircleCheck size={14} aria-hidden="true" />
+          {muggle ? "No problems in this scope." : "No issues detected."}
+        </p>
       )}
 
-      {stats.filesTouched.length > 0 && (
-        <section className="card">
-          <h2 className="card-title">{muggle ? "Files it worked on" : "Files touched"}</h2>
-          <ul className="files">
-            {stats.filesTouched.slice(0, 12).map((f) => (
-              <li key={f.path}>
-                <span className="file-path" title={f.path}>
-                  {muggle ? (f.path.split(/[\\/]/).pop() ?? f.path) : f.path}
-                </span>
-                <span className="num faint">{f.count}×</span>
-              </li>
-            ))}
-          </ul>
-        </section>
+      {(topTools.length > 0 || stats.filesTouched.length > 0) && (
+        <details className="more-details">
+          <summary>{muggle ? "More breakdown" : "Tools & files"}</summary>
+          {topTools.length > 0 && (
+            <section className="card is-nested">
+              <h2 className="card-title">{muggle ? "What it used most" : "By tool"}</h2>
+              <table className="tool-table">
+                <thead>
+                  <tr>
+                    <th scope="col">{muggle ? "Used" : "Tool"}</th>
+                    <th scope="col">{muggle ? "Times" : "Calls"}</th>
+                    <th scope="col" title={ESTIMATE_NOTE}>
+                      {muggle ? "Effort" : "Est. tokens"}
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {topTools.map((t) => (
+                    <tr key={t.name}>
+                      <td>{t.name}</td>
+                      <td className="num">{t.calls}</td>
+                      <td className="num">{muggle ? effortOf(t.estTokens) : `~${formatTokens(t.estTokens)}`}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </section>
+          )}
+          {stats.filesTouched.length > 0 && (
+            <section className="card is-nested">
+              <h2 className="card-title">{muggle ? "Files it worked on" : "Files touched"}</h2>
+              <ul className="files">
+                {stats.filesTouched.slice(0, 8).map((f) => (
+                  <li key={f.path}>
+                    <span className="file-path" title={f.path}>
+                      {muggle ? (f.path.split(/[\\/]/).pop() ?? f.path) : f.path}
+                    </span>
+                    <span className="num faint">{f.count}×</span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+        </details>
       )}
     </>
   );

@@ -2,7 +2,6 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   ChevronRight,
   Clock,
-  Eye,
   Flame,
   Repeat,
   Search,
@@ -134,7 +133,9 @@ export function Timeline({
               onClick={() => onFilter(f.key)}
             >
               {muggle ? MUGGLE_FILTERS[f.key] : f.label}
-              <span className="seg-count num">{counts[f.key]}</span>
+              {f.key !== "all" && counts[f.key] > 0 && (
+                <span className="seg-count num">{counts[f.key]}</span>
+              )}
             </button>
           ))}
         </div>
@@ -290,17 +291,19 @@ function TurnGroup({
             </dt>
             <dd className="num">{muggle ? `${turn.tools} actions` : turn.tools}</dd>
           </div>
-          <div title={muggle ? "How much text it went through" : "Estimated tokens into context"}>
-            {!muggle && (
-              <dt>
-                <span className="tok-glyph" aria-hidden="true">
-                  tok
-                </span>
-                <span className="sr-only">Estimated tokens</span>
-              </dt>
-            )}
-            <dd className="num">{muggle ? pagesShort(turn.tokens) : `~${formatTokens(turn.tokens)}`}</dd>
-          </div>
+          {turn.tokens > 0 && (
+            <div title={muggle ? "How much text it went through" : "Estimated tokens into context"}>
+              {!muggle && (
+                <dt>
+                  <span className="tok-glyph" aria-hidden="true">
+                    tok
+                  </span>
+                  <span className="sr-only">Estimated tokens</span>
+                </dt>
+              )}
+              <dd className="num">{muggle ? pagesShort(turn.tokens) : `~${formatTokens(turn.tokens)}`}</dd>
+            </div>
+          )}
           {turn.errors > 0 && (
             <div className="is-danger" title={muggle ? "Problems" : "Errors"}>
               <dt>
@@ -311,15 +314,6 @@ function TurnGroup({
             </div>
           )}
         </dl>
-          <button
-            type="button"
-            className={`icon-btn${selectedEventId === prompt.id ? " is-on" : ""}`}
-            onClick={() => onSelect(prompt.id)}
-            aria-label={muggle ? "Show your full message" : "Inspect prompt"}
-            title={muggle ? "Show your full message" : "Inspect prompt"}
-          >
-            <Eye size={15} aria-hidden="true" />
-          </button>
         </div>
       </header>
 
@@ -401,7 +395,7 @@ function EventRow({
             className="row-tokens"
             title={tokens ? `Rough guess: ${pagesOf(tokens)} of text (~${formatTokens(tokens)} tokens). Not what you're billed.` : undefined}
           >
-            {effort && (
+            {effort && effort !== "light" && (
               <>
                 {bar}
                 <span className={`effort effort-${effort}`}>{effort}</span>
@@ -409,7 +403,7 @@ function EventRow({
             )}
           </span>
           <span className="row-duration num">
-            {event.durationMs != null && event.durationMs >= 1000 ? formatDuration(event.durationMs) : ""}
+            {event.durationMs != null && event.durationMs >= 2500 ? formatDuration(event.durationMs) : ""}
           </span>
         </button>
       </li>
