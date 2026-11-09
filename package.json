@@ -1,0 +1,69 @@
+{
+  "name": "agenttrace",
+  "version": "0.1.0",
+  "description": "Observability for AI coding agents — inspect tools, files, loops, costs, and failures.",
+  "type": "module",
+  "license": "MIT",
+  "bin": {
+    "agenttrace": "./dist/cli/index.js"
+  },
+  "main": "./dist/core/index.js",
+  "types": "./dist/core/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/core/index.d.ts",
+      "import": "./dist/core/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsup && npm run build:ui",
+    "build:cli": "tsup",
+    "build:ui": "vite build --config src/ui/vite.config.ts",
+    "dev:ui": "vite --config src/ui/vite.config.ts",
+    "start": "node scripts/ensure-built.mjs open",
+    "at": "node scripts/ensure-built.mjs",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "prepublishOnly": "npm run build && npm test"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "keywords": [
+    "ai",
+    "agents",
+    "observability",
+    "tracing",
+    "mcp",
+    "cli",
+    "devtools"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/example/agenttrace"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.1",
+    "citty": "^0.1.6",
+    "zod": "^3.24.2"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.10",
+    "@types/react": "^19.0.10",
+    "@types/react-dom": "^19.0.4",
+    "@vitejs/plugin-react": "^4.3.4",
+    "lucide-react": "^1.70.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "tsup": "^8.4.0",
+    "typescript": "^5.8.2",
+    "vite": "^6.2.2",
+    "vitest": "^3.0.9"
+  }
+}

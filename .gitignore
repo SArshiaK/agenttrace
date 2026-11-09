@@ -1,0 +1,10 @@
+node_modules/
+dist/
+.tmp-agenttrace/
+.DS_Store
+*.log
+.vite/
+coverage/
+.env
+.env.*
+*.local
