@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "description": "Observability for AI coding agents — inspect tools, files, loops, costs, and failures.",
   "type": "module",
-  "license": "MIT",
+  "license": "AGPL-3.0-only",
   "bin": {
     "agenttrace": "./dist/cli/index.js"
   },
@@ -46,7 +46,7 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/example/agenttrace"
+    "url": "https://github.com/SArshiaK/agenttrace"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.12.1",
