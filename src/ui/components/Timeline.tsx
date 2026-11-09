@@ -397,7 +397,10 @@ function EventRow({
               </span>
             )}
           </span>
-          <span className="row-tokens" title={tokens ? `${pagesOf(tokens)} of text (~${formatTokens(tokens)} tokens)` : undefined}>
+          <span
+            className="row-tokens"
+            title={tokens ? `Rough guess: ${pagesOf(tokens)} of text (~${formatTokens(tokens)} tokens). Not what you're billed.` : undefined}
+          >
             {effort && (
               <>
                 {bar}
@@ -449,7 +452,10 @@ function EventRow({
             </span>
           )}
         </span>
-        <span className="row-tokens" title={tokens ? `~${tokens.toLocaleString()} tokens (estimated)` : undefined}>
+        <span
+          className="row-tokens"
+          title={tokens ? `~${tokens.toLocaleString()} tokens, estimated from text length. Not billed usage.` : undefined}
+        >
           {tokens > 0 ? (
             <>
               {bar}

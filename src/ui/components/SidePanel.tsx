@@ -15,6 +15,7 @@ import {
   type Mode,
 } from "../lib/humanize";
 import { EventIcon } from "./EventIcon";
+import { Accuracy, ESTIMATE_NOTE } from "./RunHeader";
 
 type Props = {
   payload: RunPayload;
@@ -220,7 +221,9 @@ function Insights({
             <dd className="num">{stats.toolCount}</dd>
           </div>
           <div>
-            <dt>{muggle ? "Text" : "Tokens"}</dt>
+            <dt>
+              {muggle ? "Text" : "Tokens"} <Accuracy kind="est" />
+            </dt>
             <dd className="num">
               {muggle ? pagesShort(stats.estTokens.total) : `~${formatTokens(stats.estTokens.total)}`}
             </dd>
@@ -233,7 +236,9 @@ function Insights({
       )}
 
       <section className="card">
-        <h2 className="card-title">{muggle ? "What took the most effort" : "Heaviest steps"}</h2>
+        <h2 className="card-title">
+          {muggle ? "What took the most effort" : "Heaviest steps"} <Accuracy kind="est" />
+        </h2>
         {stats.heaviestSteps.length === 0 ? (
           <p className="hint">{muggle ? "Nothing yet." : "No token-bearing steps yet."}</p>
         ) : (
@@ -269,7 +274,9 @@ function Insights({
               <tr>
                 <th scope="col">{muggle ? "Used" : "Tool"}</th>
                 <th scope="col">{muggle ? "Times" : "Calls"}</th>
-                <th scope="col">{muggle ? "Effort" : "Tokens"}</th>
+                <th scope="col" title={ESTIMATE_NOTE}>
+                  {muggle ? "Effort" : "Est. tokens"}
+                </th>
                 <th scope="col">Time</th>
               </tr>
             </thead>
@@ -381,7 +388,36 @@ function Block({ title, text }: { title: string; text: string }) {
   );
 }
 
-const SHOWN_KEYS = new Set(["text", "output", "args", "estTokens", "chars", "outputChars", "name", "path", "model"]);
+const SHOWN_KEYS = new Set([
+  "text",
+  "output",
+  "args",
+  "estTokens",
+  "chars",
+  "outputChars",
+  "name",
+  "path",
+  "model",
+  "images",
+  "estimateAdjusted",
+]);
+
+/** Says how a step's token number was produced, so nobody mistakes it for a measurement. */
+function estimateBasis(event: AgentTraceEvent, muggle: boolean): string | undefined {
+  const d = event.data ?? {};
+  if (!estTokens(event)) return undefined;
+  const images = typeof d.images === "number" ? d.images : 0;
+  if (d.estimateAdjusted === "legacy-image") {
+    return muggle
+      ? "Recorded before screenshots were measured properly, so this number is an adjusted guess."
+      : "Adjusted guess: recorded before image handling; the original counted the screenshot's base64 as text.";
+  }
+  const parts = [
+    muggle ? "Guessed from the amount of text" : "Estimated from text length (~4 chars/token)",
+    images ? (muggle ? `plus about 1k per image (${images})` : `+ ~1k per image (${images})`) : undefined,
+  ].filter(Boolean);
+  return `${parts.join(" ")}. ${muggle ? "Not what you're billed." : "Not billed usage."}`;
+}
 
 function Inspector({ event, muggle, onClose }: { event: AgentTraceEvent; muggle: boolean; onClose: () => void }) {
   const d = event.data ?? {};
@@ -401,7 +437,7 @@ function Inspector({ event, muggle, onClose }: { event: AgentTraceEvent; muggle:
     : [
         ["Time", formatDateTime(event.ts)],
         ["Duration", event.durationMs != null ? formatDuration(event.durationMs) : undefined],
-        ["Tokens", tokens ? `~${tokens.toLocaleString()} (estimated)` : undefined],
+        ["Est. tokens", tokens ? `~${tokens.toLocaleString()}` : undefined],
         ["Tool", str(d.name)],
         ["Path", str(d.path)],
         ["Model", str(d.model)],
@@ -448,6 +484,13 @@ function Inspector({ event, muggle, onClose }: { event: AgentTraceEvent; muggle:
             </div>
           ))}
       </dl>
+
+      {estimateBasis(event, muggle) && (
+        <p className="estimate-basis">
+          <Accuracy kind="est" />
+          <span>{estimateBasis(event, muggle)}</span>
+        </p>
+      )}
 
       {event.error && (
         <div className="callout is-danger" role="note">

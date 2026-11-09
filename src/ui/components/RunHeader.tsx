@@ -17,10 +17,39 @@ type Props = {
   onMode: (mode: Mode) => void;
 };
 
-function Kpi({ label, value, hint, tone }: { label: string; value: string; hint?: string; tone?: "danger" | "ok" }) {
+export const ESTIMATE_NOTE =
+  "Estimated from text size (~4 characters per token). This is how much text entered the agent's context, not your billed usage: the model re-reads its context on every step, so billed tokens are usually several times higher.";
+
+export function Accuracy({ kind }: { kind: "exact" | "est" }) {
   return (
-    <div className={`kpi${tone ? ` tone-${tone}` : ""}`}>
-      <span className="kpi-label">{label}</span>
+    <span
+      className={`accuracy is-${kind}`}
+      title={kind === "exact" ? "Reported directly by Cursor" : ESTIMATE_NOTE}
+    >
+      {kind === "exact" ? "exact" : "est."}
+    </span>
+  );
+}
+
+function Kpi({
+  label,
+  value,
+  hint,
+  tone,
+  accuracy,
+}: {
+  label: string;
+  value: string;
+  hint?: string;
+  tone?: "danger" | "ok";
+  accuracy?: "exact" | "est";
+}) {
+  return (
+    <div className={`kpi${tone ? ` tone-${tone}` : ""}`} title={accuracy === "est" ? ESTIMATE_NOTE : undefined}>
+      <span className="kpi-label">
+        {label}
+        {accuracy && <Accuracy kind={accuracy} />}
+      </span>
       <span className="kpi-value num">{value}</span>
       {hint && <span className="kpi-hint">{hint}</span>}
     </div>
@@ -166,9 +195,10 @@ export function RunHeader({ payload, runs, onSelectRun, now, live, onToggleLive,
           <Kpi label="Files changed" value={String(changedFiles)} />
           <Kpi label="Problems" value={String(stats.errorCount)} tone={stats.errorCount ? "danger" : undefined} />
           <Kpi
-            label="Text processed"
+            label="Text it read & wrote"
             value={pagesShort(est.total)}
-            hint={`~${formatTokens(est.total)} tokens`}
+            hint="rough guess, not your bill"
+            accuracy="est"
           />
         </div>
       ) : (
@@ -182,18 +212,25 @@ export function RunHeader({ payload, runs, onSelectRun, now, live, onToggleLive,
             tone={failedTools ? "danger" : undefined}
           />
           <Kpi label="Errors" value={String(stats.errorCount)} tone={stats.errorCount ? "danger" : undefined} />
-          <Kpi label="Into context" value={`~${formatTokens(est.total)}`} hint="tokens, estimated" />
+          <Kpi
+            label="Text into context"
+            value={`~${formatTokens(est.total)}`}
+            hint="tokens · not billed usage"
+            accuracy="est"
+          />
           {stats.contextPeak ? (
             <Kpi
               label="Context peak"
               value={formatTokens(stats.contextPeak.tokens)}
               hint={stats.contextPeak.percent != null ? `${stats.contextPeak.percent}% of window` : "reported by Cursor"}
+              accuracy="exact"
             />
           ) : (
             <Kpi
               label="Heaviest step"
               value={stats.heaviestSteps[0] ? `~${formatTokens(stats.heaviestSteps[0].estTokens)}` : "—"}
               hint={stats.heaviestSteps[0]?.title}
+              accuracy="est"
             />
           )}
         </div>
@@ -201,9 +238,14 @@ export function RunHeader({ payload, runs, onSelectRun, now, live, onToggleLive,
 
       <section className="tokenbar" aria-labelledby="tokenbar-title">
         <div className="tokenbar-head">
-          <h2 id="tokenbar-title">{muggle ? "Where the effort went" : "Where tokens went"}</h2>
-          <span className="hint">
-            {muggle ? "rough estimate · 1 page ≈ 650 tokens" : "estimated from text size · ~4 chars per token"}
+          <h2 id="tokenbar-title">
+            {muggle ? "Where the effort went" : "Where the context text came from"}
+            <Accuracy kind="est" />
+          </h2>
+          <span className="hint" title={ESTIMATE_NOTE}>
+            {muggle
+              ? "rough guess from text size · not your bill"
+              : "~4 chars per token · not billed usage (context is re-read every step)"}
           </span>
         </div>
         {est.total > 0 ? (

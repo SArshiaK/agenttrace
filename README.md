@@ -34,9 +34,22 @@ Send a message in Cursor. Each chat becomes one run, updated live:
 - your prompts, the agent's responses and thinking
 - every tool call (Shell, Read, Grep, edits, MCP) with duration and output
 - failed tool calls, file edits, context compaction
-- **where tokens went**: estimated tokens per step (~4 chars/token), heaviest steps, per-tool totals, and the real context size Cursor reports at compaction
+- **where the context text came from**: estimated tokens per step, heaviest steps, per-tool totals, and the real context size Cursor reports at compaction
 
-Cursor doesn't expose exact per-step token counts or cost to hooks, so step-level numbers are estimates. Secrets that look like API keys or tokens are redacted before anything is written. Hook failures never block Cursor; they're logged to `~/.agenttrace/hook-errors.log`.
+Secrets that look like API keys or tokens are redacted before anything is written. Hook failures never block Cursor; they're logged to `~/.agenttrace/hook-errors.log`.
+
+### What's exact and what's estimated
+
+The UI tags every number `exact` or `est.` so it's always clear which is which.
+
+| Exact (reported by Cursor) | Estimated by agenttrace |
+|---|---|
+| Which tools ran, their input and output | Tokens per step: text length ÷ 4 |
+| Duration of each step | Screenshots and images: ~1k tokens each |
+| Files edited, errors, prompts, replies, thinking | "≈ N pages" in Muggle mode (≈ 650 tokens per page) |
+| Context size at compaction (`context_tokens`) | Events recorded before image handling was fixed: adjusted, flagged in the inspector |
+
+**The token numbers are not your bill.** They measure how much text entered the agent's context. Billed usage is usually several times higher, because the model re-reads its whole context on every step (cache reads). Cursor's hooks don't expose per-step token counts or cost. The exact per-request numbers live in Cursor's dashboard (Usage → Export CSV) and, for Team accounts, in the Admin API (`/teams/filtered-usage-events`).
 
 ## Manual events
 

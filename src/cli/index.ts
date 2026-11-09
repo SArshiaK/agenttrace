@@ -205,14 +205,14 @@ const summaryCmd = defineCommand({
           `${summary.stats.eventCount} events`,
           `${summary.stats.toolCount} tools`,
           `${summary.stats.errorCount} errors`,
-          `~${formatTokens(summary.stats.estTokens.total)} tokens into context (est.)`,
+          `~${formatTokens(summary.stats.estTokens.total)} tokens of text into context (est., not billed usage)`,
           `cost ${formatMoney(summary.stats.approxCostUsd)}`,
         ].join(" · "),
       );
       const est = summary.stats.estTokens;
       if (est.total > 0) {
         console.log("");
-        console.log(heading("Where tokens went (estimate)"));
+        console.log(heading("Where the context text came from (estimate)"));
         console.log(
           `tools ~${formatTokens(est.tools)} · edits ~${formatTokens(est.edits)} · prompts ~${formatTokens(est.prompts)} · responses ~${formatTokens(est.responses)} · thinking ~${formatTokens(est.thinking)}`,
         );

@@ -100,7 +100,15 @@ function correctLegacyEstimates(event: AgentTraceEvent): AgentTraceEvent {
   ) {
     return event;
   }
-  return { ...event, data: { ...d, estTokens: Math.min(d.estTokens, IMAGE_TOKENS * 2.5), images: 1 } };
+  return {
+    ...event,
+    data: {
+      ...d,
+      estTokens: Math.min(d.estTokens, IMAGE_TOKENS * 2.5),
+      images: 1,
+      estimateAdjusted: "legacy-image",
+    },
+  };
 }
 
 /** Cursor can fire afterAgentThought twice for the same block. */
