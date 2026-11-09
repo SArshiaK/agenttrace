@@ -405,6 +405,11 @@ const SHOWN_KEYS = new Set([
 /** Says how a step's token number was produced, so nobody mistakes it for a measurement. */
 function estimateBasis(event: AgentTraceEvent, muggle: boolean): string | undefined {
   const d = event.data ?? {};
+  if (d.harness) {
+    return muggle
+      ? "Cursor wrote this file itself. The assistant didn't read it all, only the parts it searched for later, so it costs nothing here."
+      : "Written by Cursor, not the agent: a large tool result saved to disk. Only what the agent later reads or greps enters context, so it counts 0 here.";
+  }
   if (!estTokens(event)) return undefined;
   const images = typeof d.images === "number" ? d.images : 0;
   if (d.estimateAdjusted === "legacy-image") {

@@ -139,6 +139,34 @@ describe("handleCursorHook", () => {
     expect(projects).toEqual(["d:/work/blog", "d:/work/shop"]);
   });
 
+  it("records an event once when Cursor runs the same hook twice", async () => {
+    const store = await tempStore();
+    const payload = {
+      ...base,
+      hook_event_name: "postToolUse",
+      tool_name: "Shell",
+      tool_input: { command: "npm test" },
+      tool_output: "ok",
+      duration: 900,
+    };
+    await Promise.all([
+      handleCursorHook(payload, new TraceStore(store.home)),
+      handleCursorHook(payload, new TraceStore(store.home)),
+    ]);
+    const events = await store.readEvents(runIdFor(base)!);
+    expect(events.filter((e) => e.type === "tool.ended")).toHaveLength(1);
+  });
+
+  it("doesn't count files Cursor saves for itself as edits", () => {
+    const [write] = mapCursorHook({
+      ...base,
+      hook_event_name: "afterFileEdit",
+      file_path: "C:/Users/me/.cursor/projects/d-proj/agent-tools/7073e7cd.txt",
+      edits: [{ old_string: "", new_string: "x".repeat(80_000) }],
+    });
+    expect(write?.data).toMatchObject({ estTokens: 0, harness: true });
+  });
+
   it("ends the run on sessionEnd", async () => {
     const store = await tempStore();
     await handleCursorHook({ ...base, hook_event_name: "sessionStart" }, store);

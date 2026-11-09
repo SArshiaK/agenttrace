@@ -1,5 +1,8 @@
-import { basename, isAbsolute, relative } from "node:path";
-import { TraceStore } from "../core/store.js";
+import { createHash } from "node:crypto";
+import { mkdir, open } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { basename, isAbsolute, join, relative } from "node:path";
+import { TraceStore, isHarnessFile } from "../core/store.js";
 import { estimateTokens, measureOutput, redact, truncate } from "../core/redact.js";
 
 type HookInput = Record<string, unknown> & {
@@ -141,6 +144,7 @@ export function mapCursorHook(input: HookInput): EventInput[] {
             estTokens: measured.estTokens + (EDIT_TOOLS.has(name) ? 0 : estimateTokens(inputText)),
             ...(measured.blobs ? { images: measured.blobs } : {}),
             ...(path ? { path: displayPath(path, roots) } : {}),
+            ...(path && EDIT_TOOLS.has(name) && isHarnessFile(path) ? { estTokens: 0, harness: true } : {}),
             ...(failed ? { failureType: str(input.failure_type), interrupted: input.is_interrupt } : {}),
           },
           error: failed
@@ -173,7 +177,8 @@ export function mapCursorHook(input: HookInput): EventInput[] {
             edits: edits.length,
             addedChars: added,
             removedChars: removed,
-            estTokens: Math.ceil((added + removed) / 4),
+            estTokens: isHarnessFile(path) ? 0 : Math.ceil((added + removed) / 4),
+            ...(isHarnessFile(path) ? { harness: true } : {}),
           },
         },
       ];
@@ -236,9 +241,30 @@ export function mapCursorHook(input: HookInput): EventInput[] {
   }
 }
 
+function sha1(text: string): string {
+  return createHash("sha1").update(text).digest("hex");
+}
+
+/**
+ * Cursor can run the same hook twice for one event with an identical payload. The first
+ * process to create the marker records it; markers live in the OS temp dir, never the store.
+ */
+async function claimOnce(runId: string, input: HookInput, home: string): Promise<boolean> {
+  const dir = join(tmpdir(), "agenttrace-dedupe", sha1(home).slice(0, 12), runId);
+  try {
+    await mkdir(dir, { recursive: true });
+    const handle = await open(join(dir, sha1(JSON.stringify(input))), "wx");
+    await handle.close();
+    return true;
+  } catch (error) {
+    return (error as NodeJS.ErrnoException).code !== "EEXIST";
+  }
+}
+
 export async function handleCursorHook(input: HookInput, store = new TraceStore()): Promise<void> {
   const runId = runIdFor(input);
   if (!runId) return;
+  if (!(await claimOnce(runId, input, store.home))) return;
   await store.ensureRun(runId, {
     title: "Cursor chat",
     source: "cursor",

@@ -107,6 +107,10 @@ export function humanRow(event: AgentTraceEvent): { text: string; sub?: string }
     };
   }
 
+  if (d.harness) {
+    return { text: "Cursor saved a large result to a file", sub: "for the assistant to look through later" };
+  }
+
   switch (kind) {
     case "prompt":
       return { text: "You sent a message", sub: oneLine(str(d.text) ?? "") };

@@ -46,4 +46,28 @@ describe("TraceStore", () => {
     expect(summary.stats.eventCount).toBe(events.length);
     expect(summary.stats.fileCount).toBe(1);
   });
+
+  it("hides doubled hook events on read but keeps genuine repeats", async () => {
+    const store = await tempStore();
+    const { run } = await store.startRun({ title: "dupes", ts: "2026-01-01T10:00:00.000Z" });
+    const read = { runId: run.id, type: "tool.ended", title: "Read: a.ts", data: { name: "Read", estTokens: 50 } };
+    await store.appendEvent({ ...read, ts: "2026-01-01T10:00:01.000Z" });
+    await store.appendEvent({ ...read, ts: "2026-01-01T10:00:01.060Z" });
+    await store.appendEvent({ ...read, ts: "2026-01-01T10:00:30.000Z" });
+
+    const events = await store.readEvents(run.id);
+    expect(events.filter((e) => e.type === "tool.ended")).toHaveLength(2);
+  });
+
+  it("zeroes the estimate of files Cursor saved for itself in old traces", async () => {
+    const store = await tempStore();
+    const { run } = await store.startRun({ title: "harness" });
+    await store.appendEvent({
+      runId: run.id,
+      type: "file.write",
+      data: { path: "C:/Users/me/.cursor/projects/p/agent-tools/x.txt", addedChars: 81_031, estTokens: 20_258 },
+    });
+    const write = (await store.readEvents(run.id)).find((e) => e.type === "file.write");
+    expect(write?.data).toMatchObject({ estTokens: 0, harness: true });
+  });
 });

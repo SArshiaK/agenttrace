@@ -73,6 +73,16 @@ function parseEvents(raw: string): AgentTraceEvent[] {
  */
 function correctLegacyEstimates(event: AgentTraceEvent): AgentTraceEvent {
   const d = event.data;
+  if (
+    d &&
+    !d.harness &&
+    typeof d.path === "string" &&
+    isHarnessFile(d.path) &&
+    (event.type === "file.write" ||
+      (event.type === "tool.ended" && typeof d.name === "string" && LEGACY_EDIT_TOOLS.has(d.name)))
+  ) {
+    return { ...event, data: { ...d, estTokens: 0, harness: true } };
+  }
   // Early edit events counted the whole resulting file; the diff size is what the model produced.
   if (event.type === "file.write" && d && d.estTokens === undefined) {
     const added = typeof d.addedChars === "number" ? d.addedChars : 0;
@@ -111,16 +121,35 @@ function correctLegacyEstimates(event: AgentTraceEvent): AgentTraceEvent {
   };
 }
 
-/** Cursor can fire afterAgentThought twice for the same block. */
-function dropRepeatedThoughts(events: AgentTraceEvent[]): AgentTraceEvent[] {
+/**
+ * Files Cursor writes on its own, e.g. a web page too large to return inline, saved under
+ * `~/.cursor/projects/<project>/agent-tools/`. The agent didn't author them and only sees
+ * what it later reads back.
+ */
+export function isHarnessFile(path: string): boolean {
+  return /[\\/]\.cursor[\\/]projects[\\/][^\\/]+[\\/]agent-tools[\\/]/i.test(path);
+}
+
+const DUPLICATE_WINDOW_MS = 3_000;
+const THOUGHT_REPEAT_WINDOW_MS = 30_000;
+
+/**
+ * Cursor sometimes runs the same hook twice for one event (e.g. a removed project hooks.json
+ * still loaded next to the global one), and can fire afterAgentThought twice for one block.
+ */
+function dropDuplicates(events: AgentTraceEvent[]): AgentTraceEvent[] {
   const lastSeen = new Map<string, number>();
   return events.filter((event) => {
-    if (event.type !== "model.thought") return true;
-    const text = typeof event.data?.text === "string" ? event.data.text : "";
+    const isThought = event.type === "model.thought";
+    const key = isThought
+      ? `thought|${typeof event.data?.text === "string" ? event.data.text : ""}`
+      : JSON.stringify([event.type, event.title, event.data, event.error]);
     const ts = Date.parse(event.ts);
-    const prev = lastSeen.get(text);
-    lastSeen.set(text, ts);
-    return prev === undefined || ts - prev > 30_000;
+    const prev = lastSeen.get(key);
+    const window = isThought ? THOUGHT_REPEAT_WINDOW_MS : DUPLICATE_WINDOW_MS;
+    if (prev !== undefined && Math.abs(ts - prev) <= window) return false;
+    lastSeen.set(key, ts);
+    return true;
   });
 }
 
@@ -332,7 +361,7 @@ export class TraceStore {
     if (cached && cached.mtimeMs === info.mtimeMs && cached.size === info.size) {
       return cached.events;
     }
-    const events = dropRepeatedThoughts(parseEvents(await readFile(path, "utf8"))).map(
+    const events = dropDuplicates(parseEvents(await readFile(path, "utf8"))).map(
       correctLegacyEstimates,
     );
     this.cache.set(runId, { mtimeMs: info.mtimeMs, size: info.size, events });
