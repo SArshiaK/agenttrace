@@ -3,6 +3,7 @@ import { Activity, ChevronRight, PanelLeftClose, PanelLeftOpen } from "lucide-re
 import type { RunMeta } from "../types";
 import { formatRelative } from "../lib/format";
 import { groupByProject } from "../lib/projects";
+import { SOURCES, SOURCE_META, type SourceId } from "../lib/source";
 
 type Props = {
   runs: RunMeta[];
@@ -12,9 +13,23 @@ type Props = {
   now: number;
   open: boolean;
   onToggle: () => void;
+  source: SourceId;
+  onSource: (source: SourceId) => void;
+  onBackToSources: () => void;
 };
 
-export function Sidebar({ runs, loading, selectedId, onSelect, now, open, onToggle }: Props) {
+export function Sidebar({
+  runs,
+  loading,
+  selectedId,
+  onSelect,
+  now,
+  open,
+  onToggle,
+  source,
+  onSource,
+  onBackToSources,
+}: Props) {
   const groups = useMemo(() => groupByProject(runs), [runs]);
   // undefined = follow default (open only the project that holds the selected chat)
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
@@ -44,9 +59,28 @@ export function Sidebar({ runs, loading, selectedId, onSelect, now, open, onTogg
       </div>
 
       <div className="side-content" aria-hidden={!open} inert={!open ? true : undefined}>
-        <nav className="session-nav" aria-label="Projects">
+        <div className="source-switch" role="group" aria-label="Harness">
+          {SOURCES.map((id) => (
+            <button
+              key={id}
+              type="button"
+              className={`source-switch-btn${source === id ? " is-on" : ""}`}
+              aria-pressed={source === id}
+              onClick={() => onSource(id)}
+            >
+              {SOURCE_META[id].short}
+            </button>
+          ))}
+          <button type="button" className="source-switch-all" onClick={onBackToSources} title="All harnesses">
+            All
+          </button>
+        </div>
+
+        <nav className="session-nav" aria-label={`${SOURCE_META[source].label} projects`}>
           {loading && <p className="side-empty">Loading…</p>}
-          {!loading && runs.length === 0 && <p className="side-empty">No sessions yet.</p>}
+          {!loading && runs.length === 0 && (
+            <p className="side-empty">No {SOURCE_META[source].short} sessions yet.</p>
+          )}
           {groups.map((group) => {
             const hasActive = group.runs.some((r) => r.id === selectedId);
             const groupOpen = !(collapsed[group.key] ?? !hasActive);
@@ -88,7 +122,9 @@ export function Sidebar({ runs, loading, selectedId, onSelect, now, open, onTogg
                             <span className="session-title" dir="auto">
                               {run.title}
                             </span>
-                            <span className={`session-when${running ? " is-live" : ""}`}>{running ? "Live" : when}</span>
+                            <span className={`session-when${running ? " is-live" : ""}`}>
+                              {running ? "Live" : when}
+                            </span>
                           </button>
                         </li>
                       );
@@ -100,7 +136,7 @@ export function Sidebar({ runs, loading, selectedId, onSelect, now, open, onTogg
           })}
         </nav>
 
-        <p className="side-foot">Local only</p>
+        <p className="side-foot">Local only · {SOURCE_META[source].label}</p>
       </div>
     </aside>
   );
