@@ -25,7 +25,13 @@ Needs [Node.js](https://nodejs.org) 18+ and Cursor.
 
 ```bash
 npm install -g @arshia9314/agenttrace --registry=https://registry.npmjs.org/
+```
+
+```bash
 agenttrace setup-cursor --global
+```
+
+```bash
 agenttrace open
 ```
 
