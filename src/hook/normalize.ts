@@ -93,7 +93,9 @@ function normalizeToolInput(input: unknown): Record<string, unknown> {
 
 /**
  * Detect which harness invoked the hook.
- * Explicit --source wins; then Grok/Claude env vars; otherwise Cursor.
+ * Explicit --source / marker flags win. Do NOT trust CLAUDE_* env alone:
+ * Cursor itself often exports Claude-compat vars, which was mis-routing
+ * Cursor traces into claude_* runs and making the Cursor panel look dead.
  */
 export function detectHookSource(
   argv: string[] = process.argv,
@@ -101,9 +103,8 @@ export function detectHookSource(
 ): "cursor" | "grok" | "claude" {
   if (argv.includes("--source=grok") || argv.includes("--agenttrace-hook-grok")) return "grok";
   if (argv.includes("--source=claude") || argv.includes("--agenttrace-hook-claude")) return "claude";
+  if (argv.includes("--source=cursor")) return "cursor";
   if (env.GROK_SESSION_ID || env.GROK_HOOK_EVENT || env.GROK_WORKSPACE_ROOT) return "grok";
-  // Claude Code exports CLAUDE_PROJECT_DIR for every hook process.
-  if (env.CLAUDE_PROJECT_DIR || env.CLAUDE_CODE_ENTRYPOINT) return "claude";
   return "cursor";
 }
 

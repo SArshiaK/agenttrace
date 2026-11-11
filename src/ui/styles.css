@@ -130,6 +130,279 @@ h1, h2, h3, p { margin: 0; }
   outline: none;
   scroll-padding-top: 72px;
 }
+.main.has-composer {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.main-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  scroll-padding-top: 72px;
+}
+.main.has-composer { scroll-padding-top: 72px; }
+
+/* ---------- In-panel chat (Cursor CLI) ---------- */
+.chat-composer {
+  flex: none;
+  border-top: 1px solid var(--line);
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+  backdrop-filter: blur(10px);
+  padding: 12px 28px 16px;
+}
+.chat-composer-inner {
+  max-width: 920px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.chat-setup {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px dashed color-mix(in srgb, var(--accent) 35%, var(--line));
+  background: color-mix(in srgb, var(--accent) 6%, var(--card));
+}
+.chat-setup-title {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--fg);
+}
+.chat-setup-copy {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--fg-muted);
+  line-height: 1.45;
+}
+.chat-setup-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 2px;
+}
+.chat-setup-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 34px;
+  padding: 0 12px;
+  border-radius: 8px;
+  border: 1px solid var(--line-strong);
+  background: var(--bg);
+  color: var(--fg-2);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.chat-setup-btn:hover:not(:disabled) {
+  background: var(--card-hover);
+  color: var(--fg);
+}
+.chat-setup-btn.is-primary {
+  border-color: color-mix(in srgb, var(--accent) 40%, var(--line));
+  background: color-mix(in srgb, var(--accent) 14%, var(--card));
+  color: var(--accent-text);
+}
+.chat-setup-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.chat-setup-log {
+  margin: 4px 0 0;
+  max-height: 160px;
+  overflow: auto;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: color-mix(in srgb, var(--bg) 85%, #000);
+  color: var(--fg-muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.chat-project {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--bg);
+  color: var(--fg-muted);
+}
+.chat-project input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: var(--fg);
+  font-family: var(--mono);
+  font-size: 12px;
+}
+.chat-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: end;
+}
+.chat-input {
+  width: 100%;
+  min-height: 52px;
+  max-height: 160px;
+  resize: vertical;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--line-strong);
+  background: var(--card);
+  color: var(--fg);
+  font: inherit;
+  font-size: 14px;
+  line-height: 1.45;
+}
+.chat-input:focus {
+  outline: 2px solid color-mix(in srgb, var(--accent) 45%, transparent);
+  outline-offset: 1px;
+  border-color: color-mix(in srgb, var(--accent) 40%, var(--line-strong));
+}
+.chat-input:disabled {
+  opacity: 0.6;
+}
+.chat-send {
+  width: 44px;
+  height: 44px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--accent) 40%, var(--line));
+  background: color-mix(in srgb, var(--accent) 16%, var(--card));
+  color: var(--accent-text);
+  cursor: pointer;
+}
+.chat-send:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--accent) 24%, var(--card));
+}
+.chat-send:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.chat-stop {
+  width: 44px;
+  height: 44px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, #c44 45%, var(--line));
+  background: color-mix(in srgb, #c44 16%, var(--card));
+  color: #e8a0a0;
+  cursor: pointer;
+}
+.chat-stop:hover {
+  background: color-mix(in srgb, #c44 28%, var(--card));
+}
+.chat-stop:disabled {
+  opacity: 0.55;
+  cursor: wait;
+}
+.chat-status {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--line));
+  background: color-mix(in srgb, var(--accent) 10%, var(--card));
+  color: var(--fg-2);
+  font-size: 12.5px;
+  line-height: 1.4;
+}
+.chat-status .spin {
+  flex: none;
+  margin-top: 2px;
+  color: var(--accent-text);
+}
+.chat-status-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.chat-status-copy strong {
+  font-weight: 600;
+  color: var(--fg);
+}
+.chat-status-prompt {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--fg-muted);
+}
+.chat-status.is-fresh {
+  border-color: color-mix(in srgb, var(--accent) 22%, var(--line));
+  background: color-mix(in srgb, var(--accent) 7%, var(--card));
+}
+.chat-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+.chat-new {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--fg-muted);
+  font-size: 12px;
+  cursor: pointer;
+}
+.chat-new:hover:not(:disabled) {
+  color: var(--fg);
+  border-color: var(--line-strong);
+  background: var(--card-hover);
+}
+.chat-new.is-active {
+  color: var(--accent-text);
+  border-color: color-mix(in srgb, var(--accent) 40%, var(--line));
+  background: color-mix(in srgb, var(--accent) 12%, var(--card));
+}
+.chat-new:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.chat-hint {
+  margin: 0;
+  font-size: 12px;
+  color: var(--fg-faint);
+}
+.chat-hint a { color: var(--accent-text); }
+.chat-hint code {
+  font-family: var(--mono);
+  font-size: 11px;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+}
+.chat-error {
+  margin: 0;
+  font-size: 12px;
+  color: var(--danger);
+}
+.spin { animation: spin 0.9s linear infinite; }
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
 .gate-main {
   position: relative;
   min-width: 0;
@@ -1129,6 +1402,9 @@ pre.code {
   }
   /* Drawer covers the main scrollbar; freeze background so only one bar shows. */
   .shell.is-panel-open .main {
+    overflow: hidden;
+  }
+  .shell.is-panel-open .main.has-composer .main-scroll {
     overflow: hidden;
   }
 }

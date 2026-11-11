@@ -76,8 +76,14 @@ export function rowText(event: AgentTraceEvent): { label: string; detail: string
       return { label: verb, detail: str(d.path) ?? title };
     }
     case "tool": {
-      let detail = firstLine(detailFromTitle);
-      if ((!detail || detail === name) && d.args != null) detail = firstLine(JSON.stringify(d.args)).slice(0, 160);
+      const command = str(d.command) ?? str((d.args as Record<string, unknown> | undefined)?.command);
+      const path = str(d.path) ?? str((d.args as Record<string, unknown> | undefined)?.path);
+      let detail = command ?? path ?? firstLine(detailFromTitle);
+      if ((!detail || detail === name) && d.args != null) {
+        detail = firstLine(JSON.stringify(d.args));
+      }
+      // Keep long Windows paths readable — only soft-cap extreme blobs.
+      if (detail && detail.length > 500) detail = `${detail.slice(0, 500)}…`;
       return { label: name ?? "Tool", detail: detail === name ? "" : detail };
     }
     case "note":

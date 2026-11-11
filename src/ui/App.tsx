@@ -16,6 +16,7 @@ import { Timeline } from "./components/Timeline";
 import { SidePanel } from "./components/SidePanel";
 import { EmptyState } from "./components/EmptyState";
 import { SourcePicker } from "./components/SourcePicker";
+// In-panel Cursor CLI chat (ChatComposer) is temporarily hidden.
 
 const POLL_MS = 2000;
 const NAV_KEY = "agenttrace.nav";
@@ -293,43 +294,45 @@ export function App() {
         onBackToSources={clearSource}
       />
 
-      <main className="main" id="main" ref={setScrollRoot} tabIndex={-1}>
-        {error && (
-          <div className="banner" role="alert">
-            <TriangleExclamationPoint size={14} aria-hidden="true" />
-            <span>Can't reach the local server: {error}</span>
-          </div>
-        )}
-        {showEmpty && <EmptyState source={source} />}
-        {!showEmpty && !payload && !error && filteredRuns.length > 0 && (
-          <p className="loading">Loading session…</p>
-        )}
-        {payload && (
-          <>
-            <RunHeader
-              payload={payload}
-              runs={filteredRuns}
-              onSelectRun={selectRun}
-              panelOpen={panelOpen}
-              onTogglePanel={togglePanel}
-            />
-            <Timeline
-              key={payload.run.id}
-              payload={payload}
-              turns={turns}
-              focusedTurnKey={scope === "turn" ? focusedTurn?.key : undefined}
-              onFocusTurn={focusTurn}
-              filter={filter}
-              onFilter={setFilter}
-              query={query}
-              onQuery={setQuery}
-              selectedEventId={selectedEventId}
-              onSelect={selectEvent}
-              scrollRoot={scrollRoot}
-              mode={MODE}
-            />
-          </>
-        )}
+      <main className="main" id="main" tabIndex={-1}>
+        <div className="main-scroll" ref={setScrollRoot}>
+          {error && (
+            <div className="banner" role="alert">
+              <TriangleExclamationPoint size={14} aria-hidden="true" />
+              <span>Can't reach the local server: {error}</span>
+            </div>
+          )}
+          {showEmpty && <EmptyState source={source} />}
+          {!showEmpty && !payload && !error && filteredRuns.length > 0 && (
+            <p className="loading">Loading session…</p>
+          )}
+          {payload && (
+            <>
+              <RunHeader
+                payload={payload}
+                runs={filteredRuns}
+                onSelectRun={selectRun}
+                panelOpen={panelOpen}
+                onTogglePanel={togglePanel}
+              />
+              <Timeline
+                key={payload.run.id}
+                payload={payload}
+                turns={turns}
+                focusedTurnKey={scope === "turn" ? focusedTurn?.key : undefined}
+                onFocusTurn={focusTurn}
+                filter={filter}
+                onFilter={setFilter}
+                query={query}
+                onQuery={setQuery}
+                selectedEventId={selectedEventId}
+                onSelect={selectEvent}
+                scrollRoot={scrollRoot}
+                mode={MODE}
+              />
+            </>
+          )}
+        </div>
       </main>
 
       {payload && (

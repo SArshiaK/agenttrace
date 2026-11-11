@@ -294,9 +294,15 @@ describe("Claude Code hooks", () => {
     expect(events[0]?.data?.text).toBe("all set");
   });
 
-  it("detects Claude from env or argv", () => {
+  it("detects Claude from argv only (Cursor also sets CLAUDE_* env)", () => {
     expect(detectHookSource(["node", "hook.js", "--source=claude"], {})).toBe("claude");
-    expect(detectHookSource(["node", "hook.js"], { CLAUDE_PROJECT_DIR: "D:/proj" })).toBe("claude");
+    // Cursor Agent often exports Claude-compat env — must stay cursor without --source=claude.
+    expect(detectHookSource(["node", "hook.js", "--agenttrace-hook"], { CLAUDE_PROJECT_DIR: "D:/proj" })).toBe(
+      "cursor",
+    );
+    expect(detectHookSource(["node", "hook.js", "--source=cursor"], { CLAUDE_CODE_ENTRYPOINT: "cli" })).toBe(
+      "cursor",
+    );
   });
 
   it("stores Claude chats under claude_ run ids", async () => {

@@ -32,7 +32,8 @@ export function hookScriptPath(): string {
 
 export function hookCommand(scriptPath = hookScriptPath()): string {
   // `node` + quoted forward-slash path runs the same under PowerShell, cmd, and sh.
-  return `node "${scriptPath.replace(/\\/g, "/")}" --${MARKER}`;
+  // Always pass --source=cursor so Claude-compat env vars cannot reclassify the run.
+  return `node "${scriptPath.replace(/\\/g, "/")}" --${MARKER} --source=cursor`;
 }
 
 export async function setupCursorHooks(opts: { global?: boolean; projectDir?: string }): Promise<{

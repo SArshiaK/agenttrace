@@ -34,7 +34,9 @@ npm run at -- setup-claude --global    # ~/.claude/settings.json
 npm start
 ```
 
-Open [http://127.0.0.1:7379](http://127.0.0.1:7379), pick a harness, send a message in that tool, and watch the timeline.
+Open [http://127.0.0.1:7379](http://127.0.0.1:7379), pick a harness, and watch the timeline.
+
+For **Cursor**, you can also type in the in-panel composer — agenttrace runs the [Cursor Agent CLI](https://cursor.com/docs/cli/overview) against the project and streams the same timeline (install `agent` + `agent login` first). Grok/Claude chat-from-panel comes later; for those, send messages in the harness itself.
 
 Install any combination. Recording continues even if the UI is closed.
 

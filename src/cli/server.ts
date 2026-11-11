@@ -1,9 +1,17 @@
-import { createServer } from "node:http";
+import { createServer, type IncomingMessage } from "node:http";
 import { readFile } from "node:fs/promises";
 import { extname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { TraceStore } from "../core/store.js";
 import { summarizeRun } from "../core/insights.js";
+import {
+  agentBusy,
+  agentCliStatus,
+  installCursorAgent,
+  loginCursorAgent,
+  startCursorChat,
+  stopCursorChat,
+} from "./cursor-agent.js";
 
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
 
@@ -43,6 +51,21 @@ async function findUiRoot(): Promise<string> {
   );
 }
 
+async function readJsonBody(req: IncomingMessage): Promise<unknown> {
+  const chunks: Buffer[] = [];
+  for await (const chunk of req) {
+    chunks.push(typeof chunk === "string" ? Buffer.from(chunk) : chunk);
+  }
+  const raw = Buffer.concat(chunks).toString("utf8").trim();
+  if (!raw) return {};
+  return JSON.parse(raw) as unknown;
+}
+
+function sendJson(res: import("node:http").ServerResponse, status: number, body: unknown): void {
+  res.writeHead(status, { "Content-Type": "application/json; charset=utf-8" });
+  res.end(JSON.stringify(body));
+}
+
 export async function openUi(opts: {
   runId?: string;
   port?: number;
@@ -63,6 +86,129 @@ export async function openUi(opts: {
   const server = createServer(async (req, res) => {
     try {
       const url = new URL(req.url ?? "/", `http://127.0.0.1:${port}`);
+
+      if (url.pathname === "/api/agent/status" && req.method === "GET") {
+        sendJson(res, 200, await agentCliStatus());
+        return;
+      }
+
+      if (url.pathname === "/api/agent/install" && req.method === "POST") {
+        res.writeHead(200, {
+          "Content-Type": "application/x-ndjson; charset=utf-8",
+          "Cache-Control": "no-cache",
+          "X-Accel-Buffering": "no",
+        });
+        const write = (obj: unknown) => {
+          res.write(`${JSON.stringify(obj)}\n`);
+        };
+        try {
+          write({ type: "log", line: "[agenttrace] Install started…" });
+          const result = await installCursorAgent((line) => write({ type: "log", line }));
+          const status = await agentCliStatus();
+          write({ type: "done", ok: true, path: result.path, status });
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          write({ type: "done", ok: false, error: message, status: await agentCliStatus() });
+        }
+        res.end();
+        return;
+      }
+
+      if (url.pathname === "/api/agent/login" && req.method === "POST") {
+        res.writeHead(200, {
+          "Content-Type": "application/x-ndjson; charset=utf-8",
+          "Cache-Control": "no-cache",
+          "X-Accel-Buffering": "no",
+        });
+        const write = (obj: unknown) => {
+          res.write(`${JSON.stringify(obj)}\n`);
+        };
+        try {
+          write({ type: "log", line: "[agenttrace] Login started…" });
+          const result = await loginCursorAgent((line) => write({ type: "log", line }));
+          const status = await agentCliStatus();
+          write({ type: "done", ok: true, account: result.account, status });
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          write({ type: "done", ok: false, error: message, status: await agentCliStatus() });
+        }
+        res.end();
+        return;
+      }
+
+      if (url.pathname === "/api/agent/chat" && req.method === "POST") {
+        const body = (await readJsonBody(req)) as {
+          prompt?: string;
+          project?: string;
+          runId?: string;
+          source?: string;
+        };
+        if (body.source && body.source !== "cursor") {
+          sendJson(res, 400, { error: "In-panel chat is only wired for Cursor CLI right now." });
+          return;
+        }
+        if (body.runId && agentBusy(body.runId)) {
+          sendJson(res, 409, { error: "Agent is already running for this chat." });
+          return;
+        }
+        // Never --resume an IDE-hooked conversation: it collides with the live Cursor
+        // session and re-answers the same user line in a loop.
+        let resumeRunId = body.runId?.trim() || undefined;
+        if (resumeRunId) {
+          try {
+            const events = await store.readEvents(resumeRunId);
+            const isCli = events.some(
+              (e) => (e.data as { via?: string } | undefined)?.via === "cursor-cli",
+            );
+            if (!isCli) resumeRunId = undefined;
+          } catch {
+            resumeRunId = undefined;
+          }
+        }
+        try {
+          const started = await startCursorChat(store, {
+            prompt: String(body.prompt ?? ""),
+            project: String(body.project ?? ""),
+            runId: resumeRunId,
+          });
+          sendJson(res, 200, started);
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          sendJson(res, 400, { error: message });
+        }
+        return;
+      }
+
+      if (url.pathname === "/api/agent/stop" && req.method === "POST") {
+        const body = (await readJsonBody(req)) as { runId?: string };
+        const id = String(body.runId ?? "").trim();
+        if (!id) {
+          sendJson(res, 400, { error: "runId is required." });
+          return;
+        }
+        const result = stopCursorChat(id);
+        if (result.stopped) {
+          try {
+            await store.appendEvent({
+              runId: id,
+              type: "turn.ended",
+              source: "cursor",
+              title: "Stopped",
+              data: { status: "stopped", via: "cursor-cli", stoppedBy: "user" },
+            });
+          } catch {
+            // run may not exist yet
+          }
+        }
+        sendJson(res, 200, { ...result, busy: agentBusy(id) });
+        return;
+      }
+
+      if (url.pathname === "/api/agent/busy" && req.method === "GET") {
+        const id = url.searchParams.get("runId")?.trim() ?? "";
+        sendJson(res, 200, { runId: id || null, busy: id ? agentBusy(id) : false });
+        return;
+      }
 
       if (url.pathname === "/api/runs") {
         const runs = await store.listRuns();
