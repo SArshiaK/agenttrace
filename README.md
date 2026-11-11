@@ -4,66 +4,38 @@
 
 **See what your AI coding agent actually did — every step, every file, where the effort went.**
 
-Live local timeline for [Cursor](https://cursor.com), [Grok Build](https://docs.x.ai/build), and [Claude Code](https://code.claude.com). No cloud, no account.
+Live local timeline for [Cursor](https://cursor.com). No cloud, no account.
 
 ![License: MIT](https://img.shields.io/badge/license-MIT-22c55e)
 ![Node ≥ 18](https://img.shields.io/badge/node-%E2%89%A518-3b82f6)
 ![Local only](https://img.shields.io/badge/data-local%20only-8b5cf6)
+![npm](https://img.shields.io/npm/v/@arshia9314/agenttrace)
 
 </div>
 
 ---
 
-In the chat you usually see only the final reply. agenttrace records the middle: prompts, thinking, tools, shell, file edits, MCP calls, errors — grouped by harness and project, one timeline per chat.
+In the chat you usually see only the final reply. agenttrace records the middle: prompts, thinking, tools, shell, file edits, MCP calls, errors — one timeline per chat.
 
 Data stays on your machine as JSONL under `~/.agenttrace`.
 
 ## Quick start
 
-Needs [Node.js](https://nodejs.org) 18+ and at least one of the harnesses above.
+Needs [Node.js](https://nodejs.org) 18+ and Cursor.
 
 ```bash
-git clone https://github.com/SArshiaK/agenttrace.git
-cd agenttrace
-npm install
-
-npm run at -- setup-cursor --global    # ~/.cursor/hooks.json
-npm run at -- setup-grok --global      # ~/.grok/hooks/agenttrace.json
-npm run at -- setup-claude --global    # ~/.claude/settings.json
-
-npm start
+npm install -g @arshia9314/agenttrace --registry=https://registry.npmjs.org/
+agenttrace setup-cursor --global
+agenttrace open
 ```
 
-Open [http://127.0.0.1:7379](http://127.0.0.1:7379), pick a harness, and watch the timeline.
+Then send a message in Cursor and watch the timeline at [http://127.0.0.1:7379](http://127.0.0.1:7379).
 
-For **Cursor**, you can also type in the in-panel composer — agenttrace runs the [Cursor Agent CLI](https://cursor.com/docs/cli/overview) against the project and streams the same timeline (install `agent` + `agent login` first). Grok/Claude chat-from-panel comes later; for those, send messages in the harness itself.
-
-Install any combination. Recording continues even if the UI is closed.
-
-> Hooks point at this clone (`dist/hook/index.js`). If you move the folder, rerun setup from the new path.
-
-<details>
-<summary>Trace one project only</summary>
-
-```bash
-npm run at -- setup-cursor --dir /path/to/project
-npm run at -- setup-grok --dir /path/to/project
-npm run at -- setup-claude --dir /path/to/project
-```
-
-Grok project hooks need trust once (`/hooks-trust` or `--trust`). Don’t install both global and project hooks for the same harness or events may duplicate.
-
-</details>
+Recording continues even if the UI is closed.
 
 ## How it works
 
-Each harness fires hooks on prompt / tools / edits / replies / turn end. agenttrace redacts obvious secrets and appends one JSONL line per event.
-
-| | |
-|---|---|
-| Cursor | `~/.agenttrace/runs/cursor_<id>.jsonl` |
-| Grok Build | `~/.agenttrace/runs/grok_<id>.jsonl` |
-| Claude Code | `~/.agenttrace/runs/claude_<id>.jsonl` |
+Cursor fires hooks on prompt / tools / edits / replies / turn end. agenttrace redacts obvious secrets and appends one JSONL line per event under `~/.agenttrace/runs/cursor_<id>.jsonl`.
 
 The UI only reads those files (polls every ~2s). A failing hook never blocks the agent; errors go to `~/.agenttrace/hook-errors.log`.
 
@@ -79,24 +51,6 @@ Numbers in the UI are tagged <kbd>exact</kbd> or <kbd>est.</kbd>
 
 Token figures are **not your bill** — they approximate how much text entered context. Billed usage is usually higher.
 
-## Commands
-
-```bash
-npm run at -- ls
-npm run at -- summary <runId>
-npm run at -- export <runId> -f md    # also: json, events
-npm run at -- open --port 7400
-```
-
-| Command | |
-|---|---|
-| `setup-cursor` / `setup-grok` / `setup-claude` | Install hooks (`--global` or `--dir`) |
-| `open` | Timeline UI (`npm start` shortcut) |
-| `ls` / `summary` / `export` / `status` | Inspect stored runs |
-| `mcp` | Optional MCP server so an agent can log its own runs |
-
-Store path: `~/.agenttrace` (override with `--home` or `AGENTTRACE_HOME`).
-
 ## Privacy
 
 - No telemetry or uploads. UI binds to `127.0.0.1` only.
@@ -107,10 +61,9 @@ Store path: `~/.agenttrace` (override with `--home` or `AGENTTRACE_HOME`).
 
 | Problem | Fix |
 |---|---|
-| Nothing appears | Confirm hooks are installed for that harness, restart the harness, check `~/.agenttrace/hook-errors.log`, ensure `node` works in a terminal |
-| Port 7379 busy | `npm run at -- open --port 7400` |
-| Pull didn’t update UI | `npm run build` then restart `npm start` |
-| Stop tracing | Remove `--agenttrace-hook` entries from the harness hook config (`~/.cursor/hooks.json`, `~/.grok/hooks/…`, or `~/.claude/settings.json`) |
+| Nothing appears | Confirm hooks are installed (`~/.cursor/hooks.json`), restart Cursor, check `~/.agenttrace/hook-errors.log`, ensure `node` works in a terminal |
+| Port 7379 busy | `agenttrace open --port 7400` |
+| Stop tracing | Remove `--agenttrace-hook` entries from `~/.cursor/hooks.json` |
 
 ## License
 

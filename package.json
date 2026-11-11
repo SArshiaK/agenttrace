@@ -1,11 +1,11 @@
 {
-  "name": "agenttrace",
-  "version": "0.1.0",
+  "name": "@arshia9314/agenttrace",
+  "version": "0.1.1",
   "description": "Observability for AI coding agents — inspect tools, files, loops, costs, and failures.",
   "type": "module",
   "license": "MIT",
   "bin": {
-    "agenttrace": "./dist/cli/index.js"
+    "agenttrace": "dist/cli/index.js"
   },
   "main": "./dist/core/index.js",
   "types": "./dist/core/index.d.ts",
@@ -46,7 +46,7 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/SArshiaK/agenttrace"
+    "url": "git+https://github.com/SArshiaK/agenttrace.git"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.12.1",
