@@ -6,7 +6,7 @@
 
 A live, local timeline of your Cursor chats. No cloud, no account, no setup beyond one command.
 
-![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-22c55e)
+![License: MIT](https://img.shields.io/badge/license-MIT-22c55e)
 ![Node ≥ 18](https://img.shields.io/badge/node-%E2%89%A518-3b82f6)
 ![Local only](https://img.shields.io/badge/data-local%20only-8b5cf6)
 
@@ -237,6 +237,6 @@ The code is split into `src/core` (store, schema, insights), `src/hook` (Cursor 
 
 ## License
 
-[AGPL-3.0](LICENSE). You're free to use, study and modify agenttrace. If you distribute it, or run a modified version as a service for others, you must release your full source code under the same license.
+[MIT](LICENSE).
 
 Copyright © 2026 [SArshiaK](https://github.com/SArshiaK)

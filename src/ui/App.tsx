@@ -18,10 +18,11 @@ import { EmptyState } from "./components/EmptyState";
 import { SourcePicker } from "./components/SourcePicker";
 
 const POLL_MS = 2000;
-const MODE_KEY = "agenttrace.mode";
 const NAV_KEY = "agenttrace.nav";
 const PANEL_KEY = "agenttrace.panel";
 const SOURCE_KEY = "agenttrace.source";
+/** Muggle/Technical toggle is temporarily hidden; UI stays technical. */
+const MODE: Mode = "technical";
 
 function readFlag(key: string, fallback: boolean): boolean {
   const value = localStorage.getItem(key);
@@ -79,20 +80,12 @@ export function App() {
   const [scrollRoot, setScrollRoot] = useState<HTMLElement | null>(null);
   const [focusedTurnKey, setFocusedTurnKey] = useState<string | null>(null);
   const [scope, setScope] = useState<Scope>("turn");
-  const [mode, setMode] = useState<Mode>(() =>
-    localStorage.getItem(MODE_KEY) === "technical" ? "technical" : "muggle",
-  );
 
   const filteredRuns = useMemo(
     () => (source && runs ? runsForSource(runs, source) : []),
     [runs, source],
   );
   const sourceCounts = useMemo(() => countBySource(runs ?? []), [runs]);
-
-  const changeMode = useCallback((next: Mode) => {
-    setMode(next);
-    localStorage.setItem(MODE_KEY, next);
-  }, []);
 
   const toggleNav = useCallback(() => {
     setNavOpen((prev) => {
@@ -319,8 +312,6 @@ export function App() {
               onSelectRun={selectRun}
               panelOpen={panelOpen}
               onTogglePanel={togglePanel}
-              mode={mode}
-              onMode={changeMode}
             />
             <Timeline
               key={payload.run.id}
@@ -335,7 +326,7 @@ export function App() {
               selectedEventId={selectedEventId}
               onSelect={selectEvent}
               scrollRoot={scrollRoot}
-              mode={mode}
+              mode={MODE}
             />
           </>
         )}
@@ -349,7 +340,7 @@ export function App() {
           onCloseEvent={() => setSelectedEventId(null)}
           open={panelOpen}
           onClose={() => setPanel(false)}
-          mode={mode}
+          mode={MODE}
           turn={focusedTurn}
           scope={focusedTurn ? scope : "session"}
           onScope={setScope}

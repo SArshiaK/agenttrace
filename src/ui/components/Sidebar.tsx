@@ -18,6 +18,10 @@ type Props = {
   onBackToSources: () => void;
 };
 
+function runHref(source: SourceId, runId: string): string {
+  return `?source=${encodeURIComponent(source)}&run=${encodeURIComponent(runId)}`;
+}
+
 export function Sidebar({
   runs,
   loading,
@@ -111,12 +115,18 @@ export function Sidebar({
                       const when = formatRelative(run.updatedAt, now);
                       return (
                         <li key={run.id}>
-                          <button
-                            type="button"
+                          <a
+                            href={runHref(source, run.id)}
                             className={`session${active ? " is-active" : ""}${running ? " is-live" : ""}`}
-                            aria-current={active ? "true" : undefined}
+                            aria-current={active ? "page" : undefined}
                             aria-label={`${run.title}, ${running ? "live" : run.status}, ${when}`}
-                            onClick={() => onSelect(run.id)}
+                            onClick={(e) => {
+                              // Keep in-app selection for plain left-clicks; let the browser
+                              // handle new-tab / middle-click / modified clicks via href.
+                              if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+                              e.preventDefault();
+                              onSelect(run.id);
+                            }}
                           >
                             <span className={`status-dot s-${run.status}`} aria-hidden="true" />
                             <span className="session-title" dir="auto">
@@ -125,7 +135,7 @@ export function Sidebar({
                             <span className={`session-when${running ? " is-live" : ""}`}>
                               {running ? "Live" : when}
                             </span>
-                          </button>
+                          </a>
                         </li>
                       );
                     })}

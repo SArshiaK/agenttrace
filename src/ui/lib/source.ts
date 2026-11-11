@@ -6,26 +6,23 @@ export type SourceId = (typeof SOURCES)[number];
 
 export const SOURCE_META: Record<
   SourceId,
-  { label: string; short: string; blurb: string; ready: boolean; setup: string }
+  { label: string; short: string; ready: boolean; setup: string }
 > = {
   cursor: {
     label: "Cursor",
     short: "Cursor",
-    blurb: "Every Agent chat, live — prompts, tools, files, and effort.",
     ready: true,
     setup: "npm run at -- setup-cursor --global",
   },
   grok: {
     label: "Grok Build",
     short: "Grok",
-    blurb: "Every Grok Build chat, live — prompts, tools, files, and effort.",
     ready: true,
     setup: "npm run at -- setup-grok --global",
   },
   claude: {
     label: "Claude Code",
     short: "Claude",
-    blurb: "Every Claude Code chat, live — prompts, tools, files, and effort.",
     ready: true,
     setup: "npm run at -- setup-claude --global",
   },

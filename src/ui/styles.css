@@ -261,12 +261,19 @@ h1, h2, h3, p { margin: 0; }
   align-items: center; gap: 8px;
   width: 100%; min-height: 36px; padding: 6px 8px; border-radius: 7px;
   border: 1px solid transparent;
+  color: inherit;
+  text-decoration: none;
+  cursor: pointer;
   transition: background var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease);
 }
 .session:hover { background: var(--card); }
 .session.is-active {
   background: var(--card);
   border-color: var(--line-strong);
+}
+.session:focus-visible {
+  outline: 2px solid var(--accent-text);
+  outline-offset: 1px;
 }
 
 .status-dot {
@@ -934,7 +941,7 @@ pre.code {
   flex-direction: column;
   align-items: flex-start;
   gap: 12px;
-  min-height: 196px;
+  min-height: 148px;
   padding: 22px;
   text-align: left;
   background:
@@ -1011,19 +1018,13 @@ pre.code {
   background: color-mix(in srgb, var(--warn) 12%, transparent);
   border: 1px solid color-mix(in srgb, var(--warn) 32%, var(--line));
 }
-.source-card-blurb {
-  flex: 1;
-  color: var(--fg-muted);
-  font-size: 14px;
-  line-height: 1.5;
-}
 .source-card-foot {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
   width: 100%;
-  margin-top: 6px;
+  margin-top: auto;
   padding-top: 14px;
   border-top: 1px solid color-mix(in srgb, var(--line) 85%, transparent);
 }

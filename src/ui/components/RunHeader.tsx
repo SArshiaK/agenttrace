@@ -1,9 +1,9 @@
-import { Code, Folder, PanelRight, PanelRightClose, WandSparkles } from "lucide-react";
+import { Folder, PanelRight, PanelRightClose } from "lucide-react";
 import { groupByProject } from "../lib/projects";
 import type { RunMeta, RunPayload } from "../types";
 import { formatDateTime, formatDuration, formatTokens, percent } from "../lib/format";
 import { type Kind } from "../lib/events";
-import { MUGGLE_TOKEN_LABELS, pagesShort, type Mode } from "../lib/humanize";
+import { MUGGLE_TOKEN_LABELS, pagesShort } from "../lib/humanize";
 
 type Props = {
   payload: RunPayload;
@@ -11,8 +11,6 @@ type Props = {
   onSelectRun: (id: string) => void;
   panelOpen: boolean;
   onTogglePanel: () => void;
-  mode: Mode;
-  onMode: (mode: Mode) => void;
 };
 
 export const ESTIMATE_NOTE =
@@ -97,58 +95,18 @@ export function EffortBreakdown({
   );
 }
 
-function ModeToggle({ mode, onMode }: { mode: Mode; onMode: (m: Mode) => void }) {
-  return (
-    <div className="mode-toggle" role="group" aria-label="Display mode">
-      <button
-        type="button"
-        className={`mode-btn${mode === "muggle" ? " is-on" : ""}`}
-        aria-pressed={mode === "muggle"}
-        onClick={() => onMode("muggle")}
-        title="Plain language"
-        aria-label="Muggle mode"
-      >
-        <WandSparkles size={14} aria-hidden="true" />
-        <span className="mode-label">Muggle</span>
-      </button>
-      <button
-        type="button"
-        className={`mode-btn${mode === "technical" ? " is-on" : ""}`}
-        aria-pressed={mode === "technical"}
-        onClick={() => onMode("technical")}
-        title="Technical details"
-        aria-label="Technical mode"
-      >
-        <Code size={14} aria-hidden="true" />
-        <span className="mode-label">Technical</span>
-      </button>
-    </div>
-  );
-}
-
 export function RunHeader({
   payload,
   runs,
   onSelectRun,
   panelOpen,
   onTogglePanel,
-  mode,
-  onMode,
 }: Props) {
   const { run, summary } = payload;
   const { stats } = summary;
   const running = run.status === "running";
-  const muggle = mode === "muggle";
   const projectName = run.project?.split("/").filter(Boolean).pop();
-  const statusLabel = running
-    ? muggle
-      ? "Working"
-      : "Live"
-    : run.status === "error"
-      ? "Error"
-      : muggle
-        ? "Done"
-        : "Ended";
+  const statusLabel = running ? "Live" : run.status === "error" ? "Error" : "Ended";
 
   return (
     <header className="run-header">
@@ -187,15 +145,12 @@ export function RunHeader({
               <span className="run-bar-sep" aria-hidden="true">
                 ·
               </span>
-              <span className="run-bar-stat is-danger num">
-                {stats.errorCount} {muggle ? "problems" : "errors"}
-              </span>
+              <span className="run-bar-stat is-danger num">{stats.errorCount} errors</span>
             </>
           )}
         </div>
 
         <div className="run-actions">
-          <ModeToggle mode={mode} onMode={onMode} />
           <button
             type="button"
             className={`icon-btn run-action panel-toggle${panelOpen ? " is-on" : ""}`}
@@ -204,7 +159,7 @@ export function RunHeader({
             aria-controls="details-panel"
             aria-pressed={panelOpen}
             aria-label={panelOpen ? "Hide details panel" : "Show details panel"}
-            title={muggle ? "Overview" : "Insights"}
+            title="Insights"
           >
             {panelOpen ? <PanelRightClose size={15} aria-hidden="true" /> : <PanelRight size={15} aria-hidden="true" />}
           </button>

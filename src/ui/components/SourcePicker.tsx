@@ -53,7 +53,6 @@ export function SourcePicker({ counts, onPick }: Props) {
                 <span className="source-card-name">{meta.label}</span>
                 {!meta.ready && <span className="source-badge">Soon</span>}
               </span>
-              <span className="source-card-blurb">{meta.blurb}</span>
               <span className="source-card-foot">
                 <span className="source-card-count num">
                   {n === 0 ? "No sessions yet" : `${n} session${n === 1 ? "" : "s"}`}
